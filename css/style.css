@@ -11,10 +11,10 @@
   --color-bg: #0d1117;
   --color-surface: #161b22;
   --color-border: #30363d;
-  --color-text: #e6edf3;
-  --color-text-muted: #8b949e;
-  --color-accent: #58a6ff;
-  --color-accent-hover: #79c0ff;
+  --color-text: #f0f3f6;
+  --color-text-muted: #b1bac4;
+  --color-accent: #6cb6ff;
+  --color-accent-hover: #a5d6ff;
   --radius: 12px;
   --shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
 }
@@ -114,7 +114,9 @@ body {
   transform: translateY(-2px);
   box-shadow: var(--shadow);
   border-color: var(--color-accent);
-  outline: none;
+  border-width: 2px;
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
 }
 
 .topic-card__icon {
@@ -283,7 +285,8 @@ body {
   align-items: center;
   gap: 0.5rem;
   color: var(--color-accent);
-  text-decoration: none;
+  text-decoration: underline;
+  text-underline-offset: 3px;
   font-size: 0.95rem;
   margin-bottom: 2rem;
   cursor: pointer;
@@ -294,6 +297,7 @@ body {
 
 .topic-page__back:hover {
   color: var(--color-accent-hover);
+  text-decoration-thickness: 2px;
 }
 
 .topic-page__header {
@@ -341,7 +345,7 @@ body {
 }
 
 .topic-section code {
-  background: rgba(88, 166, 255, 0.1);
+  background: rgba(108, 182, 255, 0.15);
   color: var(--color-accent);
   padding: 0.15rem 0.4rem;
   border-radius: 4px;
