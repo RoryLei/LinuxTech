@@ -2,55 +2,59 @@
 inclusion: auto
 ---
 
-# 編碼規範
+# Coding Standards
+
+## Language Policy
+- **All content must be written in English** — source code, comments, UI text, documentation, commit messages, and markdown files.
+- Technical terms use standard English naming (e.g., eBPF, Docker, Nginx).
 
 ## JavaScript
-- 使用 `const` / `let`，禁止 `var`
-- 字串使用單引號，模板字串使用反引號
-- IIFE 封裝應用邏輯，避免污染全域
-- 不使用任何前端框架或打包工具
+- Use `const` / `let`, no `var`
+- Strings use single quotes; template strings use backticks
+- IIFE to encapsulate application logic, avoid global pollution
+- No frontend frameworks or build tools
 
 ## CSS
-- 使用 CSS Custom Properties（變數）管理主題色彩
-- 採用 BEM-like 命名：`.block__element`、`.block--modifier`
-- Mobile-first 響應式設計
-- 暗色主題為預設
+- Use CSS Custom Properties (variables) for theme colors
+- BEM-like naming: `.block__element`, `.block--modifier`
+- Mobile-first responsive design
+- Dark theme as default
 
-## 無障礙與弱視配色規範
-使用者有弱視需求，所有顏色配置須符合以下原則：
-- **對比度**：文字與背景的對比度必須符合 WCAG 2.1 AA 標準（一般文字 ≥ 4.5:1，大型文字 ≥ 3:1）
-- **不僅靠顏色傳達資訊**：所有狀態、錯誤、互動提示需搭配圖示、底線或文字，不可僅用色差區分
-- **重點色彩需高飽和度且明亮**：accent color 需與暗色背景有足夠對比（建議 ≥ 7:1）
-- **字體大小**：基礎字體不低於 16px，重要標題和按鈕文字建議 ≥ 18px
-- **互動元素**：hover/focus 狀態除顏色變化外，須搭配邊框加粗、底線或 scale 等視覺輔助
-- **連結**：連結文字需加底線或明確視覺區別，不可僅依靠顏色
-- **程式碼區塊**：code 文字與背景對比 ≥ 4.5:1，避免低對比度的淺灰色
-- **高對比模式**：CSS 變數設計需考慮未來可擴充高對比模式切換
+## Accessibility & Low-Vision Color Guidelines
+Users may have low vision. All color choices must follow these principles:
+- **Contrast**: Text-to-background contrast must meet WCAG 2.1 AA (normal text >= 4.5:1, large text >= 3:1)
+- **Never rely on color alone**: All states, errors, and interactive hints must include icons, underlines, or text — not just color differences
+- **Accent colors must be bright and saturated**: Accent vs dark background should have >= 7:1 contrast
+- **Font size**: Base font no smaller than 16px; headings and button text >= 18px recommended
+- **Interactive elements**: hover/focus states must include border, outline, or scale changes — not just color
+- **Links**: Must have underline or clear visual distinction beyond color
+- **Code blocks**: Code text vs background contrast >= 4.5:1; avoid low-contrast light gray
+- **High contrast mode**: CSS variable design should support future high-contrast theme toggle
 
 ## HTML
-- 語言設定 `lang="zh-TW"`
-- 語意化標籤（header、main、footer、section、article）
-- 所有互動元素須有 aria-label 或明確文字
+- Set `lang="en"`
+- Semantic tags (header, main, footer, section, article)
+- All interactive elements must have aria-label or clear visible text
 
-## 主題資料格式 (topics.js)
-每個主題物件必須包含：
+## Topic Data Format (topics.js)
+Each topic object must include:
 ```javascript
 {
-  id: 'kebab-case-id',       // URL hash 用
-  icon: '📦',                // 單一 emoji
-  title: '中文標題',
-  description: '一句話描述此主題',
+  id: 'kebab-case-id',       // used in URL hash
+  icon: '📦',                // single emoji
+  title: 'Topic Title',
+  description: 'One-line description of the topic',
   sections: [
     {
-      title: '段落標題',
-      content: `<p>HTML 內容</p>`  // 支援 HTML 標籤
+      title: 'Section Title',
+      content: `<p>HTML content</p>`  // supports HTML tags
     }
   ]
 }
 ```
 
-## 內容撰寫原則
-- 繁體中文為主要語言
-- 技術名詞保留英文原文（如 eBPF、Docker、Nginx）
-- 程式碼範例使用 `<pre><code>` 包裹
-- 由淺入深編排 sections 順序
+## Content Writing Guidelines
+- All content in English
+- Code examples wrapped in `<pre><code>`
+- Sections ordered from introductory to advanced
+- Include links to official documentation where applicable

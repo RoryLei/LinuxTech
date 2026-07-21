@@ -1,22 +1,22 @@
 #!/bin/bash
 ###############################################################################
-# LinuxTech - 一鍵部署腳本
-# 用途：將靜態網站部署到 Linux 伺服器（Nginx）
-# 支援：Debian/Ubuntu, RHEL/CentOS/Fedora, Arch Linux
-# 使用方式：sudo bash deploy.sh
+# LinuxTech - One-Click Deployment Script
+# Purpose: Deploy the static website to a Linux server (Nginx)
+# Supports: Debian/Ubuntu, RHEL/CentOS/Fedora, Arch Linux
+# Usage: sudo bash deploy.sh
 ###############################################################################
 
 set -euo pipefail
 
-# === 設定 ===
+# === Configuration ===
 APP_NAME="linuxtech"
 WEB_ROOT="/var/www/${APP_NAME}"
 NGINX_CONF="/etc/nginx/sites-available/${APP_NAME}"
 NGINX_LINK="/etc/nginx/sites-enabled/${APP_NAME}"
-SERVER_NAME="_"  # 預設接受所有 domain，可改為你的域名如 "linuxtech.example.com"
+SERVER_NAME="_"  # Default accepts all domains; change to your domain e.g. "linuxtech.example.com"
 PORT=8080
 
-# === 顏色輸出 ===
+# === Color Output ===
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -26,12 +26,12 @@ info()  { echo -e "${GREEN}[INFO]${NC} $1"; }
 warn()  { echo -e "${YELLOW}[WARN]${NC} $1"; }
 error() { echo -e "${RED}[ERROR]${NC} $1"; exit 1; }
 
-# === 檢查 root 權限 ===
+# === Check Root Privileges ===
 if [[ $EUID -ne 0 ]]; then
-  error "此腳本需要 root 權限執行，請使用: sudo bash deploy.sh"
+  error "This script requires root privileges. Run with: sudo bash deploy.sh"
 fi
 
-# === 偵測發行版 ===
+# === Detect Distribution ===
 detect_distro() {
   if [ -f /etc/os-release ]; then
     . /etc/os-release
@@ -41,19 +41,19 @@ detect_distro() {
     DISTRO_ID="rhel"
     DISTRO_NAME=$(cat /etc/redhat-release)
   else
-    error "無法偵測 Linux 發行版"
+    error "Unable to detect Linux distribution"
   fi
-  info "偵測到系統: ${DISTRO_NAME}"
+  info "Detected system: ${DISTRO_NAME}"
 }
 
-# === 安裝 Nginx ===
+# === Install Nginx ===
 install_nginx() {
   if command -v nginx &> /dev/null; then
-    info "Nginx 已安裝，跳過安裝步驟"
+    info "Nginx already installed, skipping"
     return
   fi
 
-  info "正在安裝 Nginx..."
+  info "Installing Nginx..."
   case "${DISTRO_ID}" in
     ubuntu|debian|linuxmint|pop)
       apt-get update -qq
@@ -70,23 +70,23 @@ install_nginx() {
       pacman -Sy --noconfirm nginx
       ;;
     *)
-      error "不支援的發行版: ${DISTRO_ID}，請手動安裝 Nginx"
+      error "Unsupported distribution: ${DISTRO_ID}. Please install Nginx manually."
       ;;
   esac
-  info "Nginx 安裝完成"
+  info "Nginx installation complete"
 }
 
-# === 部署網站檔案 ===
+# === Deploy Website Files ===
 deploy_files() {
-  info "部署網站檔案到 ${WEB_ROOT}..."
+  info "Deploying website files to ${WEB_ROOT}..."
 
-  # 取得腳本所在目錄（即專案根目錄）
+  # Get the script directory (project root)
   SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-  # 建立網站目錄
+  # Create web root directory
   mkdir -p "${WEB_ROOT}"
 
-  # 複製檔案（排除 .git 和 deploy.sh 本身）
+  # Copy files (exclude .git and deploy.sh)
   if command -v rsync &> /dev/null; then
     rsync -av --delete \
       --exclude='.git' \
@@ -95,30 +95,30 @@ deploy_files() {
       --exclude='README.md' \
       "${SCRIPT_DIR}/" "${WEB_ROOT}/"
   else
-    # fallback: 使用 cp
+    # fallback: use cp
     rm -rf "${WEB_ROOT:?}"/*
     cp -r "${SCRIPT_DIR}/index.html" "${WEB_ROOT}/"
     cp -r "${SCRIPT_DIR}/css" "${WEB_ROOT}/"
     cp -r "${SCRIPT_DIR}/js" "${WEB_ROOT}/"
   fi
 
-  # 設定擁有者與權限
+  # Set ownership and permissions
   chown -R www-data:www-data "${WEB_ROOT}" 2>/dev/null || \
   chown -R nginx:nginx "${WEB_ROOT}" 2>/dev/null || \
   chown -R http:http "${WEB_ROOT}" 2>/dev/null || true
 
   chmod -R 755 "${WEB_ROOT}"
-  info "檔案部署完成"
+  info "File deployment complete"
 }
 
-# === 設定 Nginx ===
+# === Configure Nginx ===
 configure_nginx() {
-  info "設定 Nginx 虛擬主機..."
+  info "Configuring Nginx virtual host..."
 
-  # 處理不同發行版的 Nginx 設定結構
+  # Handle different distro Nginx config structures
   case "${DISTRO_ID}" in
     ubuntu|debian|linuxmint|pop)
-      # Debian 系使用 sites-available / sites-enabled
+      # Debian-based uses sites-available / sites-enabled
       mkdir -p /etc/nginx/sites-available /etc/nginx/sites-enabled
 
       cat > "${NGINX_CONF}" <<EOF
@@ -130,38 +130,38 @@ server {
     root ${WEB_ROOT};
     index index.html;
 
-    # 安全標頭
+    # Security headers
     add_header X-Frame-Options "SAMEORIGIN" always;
     add_header X-Content-Type-Options "nosniff" always;
     add_header X-XSS-Protection "1; mode=block" always;
 
-    # 靜態資源快取
+    # Static asset caching
     location ~* \.(css|js|png|jpg|jpeg|gif|ico|svg|woff2?)$ {
         expires 7d;
         add_header Cache-Control "public, immutable";
     }
 
-    # SPA 路由支援（hash-based 不需要，但保留以備未來擴充）
+    # SPA routing support (hash-based doesn't need this, but kept for future)
     location / {
         try_files \$uri \$uri/ /index.html;
     }
 
-    # 禁止存取隱藏檔
+    # Deny access to hidden files
     location ~ /\. {
         deny all;
     }
 }
 EOF
 
-      # 移除預設站台（如果存在）
+      # Remove default site (if exists)
       rm -f /etc/nginx/sites-enabled/default
 
-      # 建立 symlink 啟用站台
+      # Enable site via symlink
       ln -sf "${NGINX_CONF}" "${NGINX_LINK}"
       ;;
 
     centos|rhel|rocky|almalinux|fedora|arch|manjaro)
-      # RHEL/Arch 系使用 conf.d
+      # RHEL/Arch-based uses conf.d
       mkdir -p /etc/nginx/conf.d
 
       cat > "/etc/nginx/conf.d/${APP_NAME}.conf" <<EOF
@@ -173,12 +173,12 @@ server {
     root ${WEB_ROOT};
     index index.html;
 
-    # 安全標頭
+    # Security headers
     add_header X-Frame-Options "SAMEORIGIN" always;
     add_header X-Content-Type-Options "nosniff" always;
     add_header X-XSS-Protection "1; mode=block" always;
 
-    # 靜態資源快取
+    # Static asset caching
     location ~* \.(css|js|png|jpg|jpeg|gif|ico|svg|woff2?)$ {
         expires 7d;
         add_header Cache-Control "public, immutable";
@@ -193,75 +193,75 @@ server {
     }
 }
 EOF
-      # 註解掉預設 server block（如果在 nginx.conf 中）
+      # Warn about potential default server block conflict
       if grep -q "^\s*server {" /etc/nginx/nginx.conf 2>/dev/null; then
-        warn "偵測到 nginx.conf 中有預設 server block，建議手動移除以避免衝突"
+        warn "Default server block detected in nginx.conf; consider removing it to avoid conflicts"
       fi
       ;;
   esac
 
-  # 測試設定
-  nginx -t || error "Nginx 設定檢測失敗，請檢查設定檔"
-  info "Nginx 設定完成"
+  # Test configuration
+  nginx -t || error "Nginx configuration test failed. Please check the config file."
+  info "Nginx configuration complete"
 }
 
-# === 設定防火牆 ===
+# === Configure Firewall ===
 configure_firewall() {
-  info "設定防火牆..."
+  info "Configuring firewall..."
 
   if command -v ufw &> /dev/null; then
     ufw allow "${PORT}/tcp" >/dev/null 2>&1 || true
-    info "已開啟 ufw port ${PORT}"
+    info "Opened ufw port ${PORT}"
   elif command -v firewall-cmd &> /dev/null; then
     firewall-cmd --permanent --add-port="${PORT}/tcp" >/dev/null 2>&1 || true
     firewall-cmd --reload >/dev/null 2>&1 || true
-    info "已開啟 firewalld port ${PORT}"
+    info "Opened firewalld port ${PORT}"
   else
-    warn "未偵測到防火牆工具，請手動確認 port ${PORT} 已開啟"
+    warn "No firewall tool detected. Please manually ensure port ${PORT} is open."
   fi
 }
 
-# === 啟動 Nginx ===
+# === Start Nginx ===
 start_nginx() {
-  info "啟動 Nginx 服務..."
+  info "Starting Nginx service..."
   systemctl enable nginx >/dev/null 2>&1
   systemctl restart nginx
 
   if systemctl is-active --quiet nginx; then
-    info "Nginx 已成功啟動"
+    info "Nginx started successfully"
   else
-    error "Nginx 啟動失敗，請檢查: systemctl status nginx"
+    error "Nginx failed to start. Check with: systemctl status nginx"
   fi
 }
 
-# === 顯示結果 ===
+# === Show Result ===
 show_result() {
-  # 取得 IP
+  # Get IP address
   LOCAL_IP=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "localhost")
 
   echo ""
   echo "==========================================="
-  echo -e "${GREEN} ✓ LinuxTech 部署成功！${NC}"
+  echo -e "${GREEN} ✓ LinuxTech deployed successfully!${NC}"
   echo "==========================================="
   echo ""
-  echo "  網站目錄: ${WEB_ROOT}"
-  echo "  存取網址: http://${LOCAL_IP}:${PORT}"
+  echo "  Web root:  ${WEB_ROOT}"
+  echo "  Access URL: http://${LOCAL_IP}:${PORT}"
   echo ""
-  echo "  管理指令:"
-  echo "    重啟:  sudo systemctl restart nginx"
-  echo "    狀態:  sudo systemctl status nginx"
-  echo "    日誌:  sudo journalctl -u nginx -f"
+  echo "  Management commands:"
+  echo "    Restart: sudo systemctl restart nginx"
+  echo "    Status:  sudo systemctl status nginx"
+  echo "    Logs:    sudo journalctl -u nginx -f"
   echo ""
   echo "==========================================="
 }
 
-# === 主流程 ===
+# === Main Flow ===
 main() {
   echo ""
   echo "╔═══════════════════════════════════════════╗"
-  echo "║   🐧 LinuxTech 一鍵部署工具              ║"
+  echo "║   🐧 LinuxTech One-Click Deployment      ║"
   echo "╠═══════════════════════════════════════════╣"
-  echo "║   將網站部署到本機 Nginx 伺服器          ║"
+  echo "║   Deploy website to local Nginx server    ║"
   echo "╚═══════════════════════════════════════════╝"
   echo ""
 

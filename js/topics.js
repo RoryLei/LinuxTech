@@ -6,55 +6,55 @@ const TOPICS = [
   {
     id: 'filesystem',
     icon: '📁',
-    title: '檔案系統',
-    description: '了解 Linux 的目錄結構、檔案類型與掛載機制',
+    title: 'File System',
+    description: 'Understand the Linux directory structure, file types, and mount mechanisms',
     sections: [
       {
-        title: '目錄結構總覽',
+        title: 'Directory Structure Overview',
         content: `
-          <p>Linux 採用樹狀目錄結構，一切從根目錄 <code>/</code> 開始：</p>
+          <p>Linux uses a tree-based directory structure. Everything starts from the root <code>/</code>:</p>
           <ul>
-            <li><code>/bin</code> — 基本使用者指令</li>
-            <li><code>/etc</code> — 系統設定檔</li>
-            <li><code>/home</code> — 使用者家目錄</li>
-            <li><code>/var</code> — 可變資料（日誌、快取）</li>
-            <li><code>/tmp</code> — 暫存檔案</li>
-            <li><code>/usr</code> — 使用者程式與函式庫</li>
-            <li><code>/dev</code> — 裝置檔案</li>
-            <li><code>/proc</code> — 虛擬檔案系統（行程資訊）</li>
+            <li><code>/bin</code> — Essential user commands</li>
+            <li><code>/etc</code> — System configuration files</li>
+            <li><code>/home</code> — User home directories</li>
+            <li><code>/var</code> — Variable data (logs, caches)</li>
+            <li><code>/tmp</code> — Temporary files</li>
+            <li><code>/usr</code> — User programs and libraries</li>
+            <li><code>/dev</code> — Device files</li>
+            <li><code>/proc</code> — Virtual filesystem (process info)</li>
           </ul>
         `
       },
       {
-        title: '常用指令',
+        title: 'Common Commands',
         content: `
-          <pre><code># 列出檔案（含隱藏檔）
+          <pre><code># List files (including hidden)
 ls -la
 
-# 查看磁碟使用量
+# Check disk usage
 df -h
 
-# 查看目錄大小
+# Check directory size
 du -sh /var/log
 
-# 搜尋檔案
+# Search for files
 find / -name "*.conf" -type f
 
-# 掛載裝置
+# Mount a device
 mount /dev/sdb1 /mnt/usb</code></pre>
         `
       },
       {
-        title: '檔案權限',
+        title: 'File Permissions',
         content: `
-          <p>每個檔案有三組權限：擁有者 (owner)、群組 (group)、其他 (others)。</p>
-          <pre><code># 變更權限
+          <p>Each file has three permission groups: owner, group, and others.</p>
+          <pre><code># Change permissions
 chmod 755 script.sh
 
-# 變更擁有者
+# Change ownership
 chown user:group file.txt
 
-# 權限數字對應
+# Permission number mapping
 # r=4, w=2, x=1
 # 755 = rwxr-xr-x</code></pre>
         `
@@ -64,60 +64,60 @@ chown user:group file.txt
   {
     id: 'networking',
     icon: '🌐',
-    title: '網路管理',
-    description: '掌握 IP 設定、防火牆規則與網路除錯工具',
+    title: 'Network Management',
+    description: 'Master IP configuration, firewall rules, and network debugging tools',
     sections: [
       {
-        title: '網路介面設定',
+        title: 'Network Interface Configuration',
         content: `
-          <pre><code># 查看網路介面
+          <pre><code># Show network interfaces
 ip addr show
 
-# 設定 IP 位址
+# Set IP address
 ip addr add 192.168.1.100/24 dev eth0
 
-# 啟用/停用介面
+# Enable/disable interface
 ip link set eth0 up
 ip link set eth0 down
 
-# 查看路由表
+# Show routing table
 ip route show</code></pre>
         `
       },
       {
-        title: '網路除錯工具',
+        title: 'Network Debugging Tools',
         content: `
           <ul>
-            <li><code>ping</code> — 測試主機連通性</li>
-            <li><code>traceroute</code> — 追蹤封包路徑</li>
-            <li><code>netstat / ss</code> — 查看連線與 port 狀態</li>
-            <li><code>dig / nslookup</code> — DNS 查詢</li>
-            <li><code>curl / wget</code> — HTTP 請求工具</li>
-            <li><code>tcpdump</code> — 封包擷取分析</li>
+            <li><code>ping</code> — Test host connectivity</li>
+            <li><code>traceroute</code> — Trace packet path</li>
+            <li><code>netstat / ss</code> — View connections and port status</li>
+            <li><code>dig / nslookup</code> — DNS lookup</li>
+            <li><code>curl / wget</code> — HTTP request tools</li>
+            <li><code>tcpdump</code> — Packet capture and analysis</li>
           </ul>
-          <pre><code># 查看所有監聽的 port
+          <pre><code># Show all listening ports
 ss -tlnp
 
-# DNS 查詢
+# DNS lookup
 dig example.com
 
-# 抓取封包
+# Capture packets
 tcpdump -i eth0 port 80</code></pre>
         `
       },
       {
-        title: '防火牆 (iptables / nftables)',
+        title: 'Firewall (iptables / nftables)',
         content: `
-          <pre><code># 查看規則
+          <pre><code># List rules
 iptables -L -n
 
-# 允許 SSH
+# Allow SSH
 iptables -A INPUT -p tcp --dport 22 -j ACCEPT
 
-# 封鎖特定 IP
+# Block a specific IP
 iptables -A INPUT -s 10.0.0.5 -j DROP
 
-# 使用 ufw (簡易防火牆)
+# Using ufw (simplified firewall)
 ufw allow 80/tcp
 ufw enable</code></pre>
         `
@@ -127,59 +127,59 @@ ufw enable</code></pre>
   {
     id: 'process',
     icon: '⚙️',
-    title: '行程管理',
-    description: '學習如何監控、控制與排程系統行程',
+    title: 'Process Management',
+    description: 'Learn how to monitor, control, and schedule system processes',
     sections: [
       {
-        title: '行程監控',
+        title: 'Process Monitoring',
         content: `
-          <pre><code># 即時系統監控
+          <pre><code># Real-time system monitor
 top
 htop
 
-# 列出所有行程
+# List all processes
 ps aux
 
-# 查看行程樹
+# View process tree
 pstree
 
-# 搜尋特定行程
+# Search for a specific process
 pgrep -a nginx</code></pre>
         `
       },
       {
-        title: '行程控制',
+        title: 'Process Control',
         content: `
-          <pre><code># 傳送訊號
-kill -15 PID      # 優雅終止 (SIGTERM)
-kill -9 PID       # 強制終止 (SIGKILL)
-killall nginx     # 終止所有同名行程
+          <pre><code># Send signals
+kill -15 PID      # Graceful termination (SIGTERM)
+kill -9 PID       # Force kill (SIGKILL)
+killall nginx     # Kill all processes with same name
 
-# 背景執行
+# Background execution
 command &
-nohup command &   # 不受終端關閉影響
+nohup command &   # Survives terminal close
 
-# 前景/背景切換
-Ctrl+Z            # 暫停
-bg                # 送到背景
-fg                # 拉回前景
-jobs              # 列出工作</code></pre>
+# Foreground/background switching
+Ctrl+Z            # Suspend
+bg                # Send to background
+fg                # Bring to foreground
+jobs              # List jobs</code></pre>
         `
       },
       {
-        title: '排程工作 (Cron)',
+        title: 'Scheduled Jobs (Cron)',
         content: `
-          <pre><code># 編輯 crontab
+          <pre><code># Edit crontab
 crontab -e
 
-# 格式：分 時 日 月 星期 指令
-# 每天凌晨 2 點執行備份
+# Format: min hour day month weekday command
+# Run backup daily at 2 AM
 0 2 * * * /usr/local/bin/backup.sh
 
-# 每 5 分鐘執行
+# Run every 5 minutes
 */5 * * * * /scripts/health-check.sh
 
-# 查看目前排程
+# List current schedules
 crontab -l</code></pre>
         `
       }
@@ -188,28 +188,28 @@ crontab -l</code></pre>
   {
     id: 'shell',
     icon: '💻',
-    title: 'Shell 腳本',
-    description: '撰寫自動化腳本，提升工作效率',
+    title: 'Shell Scripting',
+    description: 'Write automation scripts to boost productivity',
     sections: [
       {
-        title: '基礎語法',
+        title: 'Basic Syntax',
         content: `
           <pre><code>#!/bin/bash
-# 變數
+# Variables
 NAME="Linux"
 echo "Hello, $NAME"
 
-# 條件判斷
+# Conditionals
 if [ -f "/etc/passwd" ]; then
-  echo "檔案存在"
+  echo "File exists"
 fi
 
-# 迴圈
+# Loops
 for i in {1..5}; do
-  echo "第 $i 次"
+  echo "Iteration $i"
 done
 
-# 函式
+# Functions
 greet() {
   echo "Hi, $1!"
 }
@@ -217,42 +217,42 @@ greet "World"</code></pre>
         `
       },
       {
-        title: '實用技巧',
+        title: 'Practical Tips',
         content: `
-          <pre><code># 管道與重導向
+          <pre><code># Pipes and redirection
 cat access.log | grep "404" | wc -l
 command > output.txt 2>&1
 
-# 字串處理
+# String manipulation
 filename="report_2026.tar.gz"
 echo "\${filename%.tar.gz}"  # report_2026
 echo "\${filename##*.}"       # gz
 
-# 陣列
+# Arrays
 arr=("apple" "banana" "cherry")
 echo "\${arr[1]}"    # banana
 echo "\${#arr[@]}"   # 3
 
-# 讀取使用者輸入
+# Read user input
 read -p "Enter name: " username
 echo "Hello, $username"</code></pre>
         `
       },
       {
-        title: '錯誤處理',
+        title: 'Error Handling',
         content: `
           <pre><code>#!/bin/bash
 set -euo pipefail
 
-# set -e  : 遇到錯誤立即退出
-# set -u  : 使用未定義變數時報錯
-# set -o pipefail : 管道中任一指令失敗即失敗
+# set -e  : Exit immediately on error
+# set -u  : Error on undefined variables
+# set -o pipefail : Pipeline fails if any command fails
 
 trap 'echo "Error on line $LINENO"; exit 1' ERR
 
-# 檢查指令是否存在
+# Check if a command exists
 if ! command -v docker &> /dev/null; then
-  echo "Docker 未安裝"
+  echo "Docker is not installed"
   exit 1
 fi</code></pre>
         `
@@ -262,48 +262,48 @@ fi</code></pre>
   {
     id: 'packages',
     icon: '📦',
-    title: '套件管理',
-    description: '使用 apt、yum、dnf 等工具管理軟體套件',
+    title: 'Package Management',
+    description: 'Manage software packages using apt, yum, dnf, and more',
     sections: [
       {
         title: 'Debian / Ubuntu (apt)',
         content: `
-          <pre><code># 更新套件清單
+          <pre><code># Update package list
 sudo apt update
 
-# 升級已安裝套件
+# Upgrade installed packages
 sudo apt upgrade
 
-# 安裝套件
+# Install a package
 sudo apt install nginx
 
-# 移除套件
+# Remove a package
 sudo apt remove nginx
-sudo apt purge nginx    # 連設定檔一起移除
+sudo apt purge nginx    # Also remove config files
 
-# 搜尋套件
+# Search packages
 apt search keyword
 
-# 查看已安裝套件
+# List installed packages
 dpkg -l | grep nginx</code></pre>
         `
       },
       {
         title: 'RHEL / CentOS / Fedora (dnf/yum)',
         content: `
-          <pre><code># 安裝套件
+          <pre><code># Install a package
 sudo dnf install httpd
 
-# 移除套件
+# Remove a package
 sudo dnf remove httpd
 
-# 搜尋套件
+# Search packages
 dnf search keyword
 
-# 列出已安裝
+# List installed
 dnf list installed
 
-# 查看套件資訊
+# Show package info
 dnf info nginx</code></pre>
         `
       },
@@ -326,58 +326,58 @@ flatpak uninstall org.gimp.GIMP</code></pre>
   {
     id: 'users',
     icon: '👥',
-    title: '使用者與權限',
-    description: '管理帳號、群組與 sudo 設定',
+    title: 'Users & Permissions',
+    description: 'Manage accounts, groups, and sudo configuration',
     sections: [
       {
-        title: '使用者管理',
+        title: 'User Management',
         content: `
-          <pre><code># 新增使用者
+          <pre><code># Add a user
 sudo useradd -m -s /bin/bash username
 sudo passwd username
 
-# 刪除使用者
+# Delete a user
 sudo userdel -r username
 
-# 修改使用者
-sudo usermod -aG docker username  # 加入群組
-sudo usermod -s /bin/zsh username # 變更 shell
+# Modify a user
+sudo usermod -aG docker username  # Add to group
+sudo usermod -s /bin/zsh username # Change shell
 
-# 查看使用者資訊
+# View user info
 id username
 whoami</code></pre>
         `
       },
       {
-        title: '群組管理',
+        title: 'Group Management',
         content: `
-          <pre><code># 新增群組
+          <pre><code># Add a group
 sudo groupadd developers
 
-# 將使用者加入群組
+# Add user to group
 sudo usermod -aG developers username
 
-# 查看群組成員
+# View group members
 getent group developers
 
-# 刪除群組
+# Delete a group
 sudo groupdel developers</code></pre>
         `
       },
       {
-        title: 'sudo 設定',
+        title: 'sudo Configuration',
         content: `
-          <p>透過 <code>/etc/sudoers</code> 控制哪些使用者可以執行管理指令：</p>
-          <pre><code># 編輯 sudoers（務必使用 visudo）
+          <p>Control which users can run admin commands via <code>/etc/sudoers</code>:</p>
+          <pre><code># Edit sudoers (always use visudo)
 sudo visudo
 
-# 允許使用者執行所有指令
+# Allow user to run all commands
 username ALL=(ALL:ALL) ALL
 
-# 允許群組免密碼執行
+# Allow group passwordless execution
 %developers ALL=(ALL) NOPASSWD: ALL
 
-# 限制特定指令
+# Restrict to specific commands
 username ALL=(ALL) /usr/bin/systemctl restart nginx</code></pre>
         `
       }
@@ -386,33 +386,33 @@ username ALL=(ALL) /usr/bin/systemctl restart nginx</code></pre>
   {
     id: 'systemd',
     icon: '🔧',
-    title: 'Systemd 與服務',
-    description: '管理系統服務、開機啟動與日誌查詢',
+    title: 'Systemd & Services',
+    description: 'Manage system services, boot targets, and log queries',
     sections: [
       {
-        title: '服務管理',
+        title: 'Service Management',
         content: `
-          <pre><code># 啟動/停止/重啟服務
+          <pre><code># Start/stop/restart a service
 sudo systemctl start nginx
 sudo systemctl stop nginx
 sudo systemctl restart nginx
 sudo systemctl reload nginx
 
-# 開機啟用/停用
+# Enable/disable at boot
 sudo systemctl enable nginx
 sudo systemctl disable nginx
 
-# 查看服務狀態
+# Check service status
 systemctl status nginx
 
-# 列出所有服務
+# List all services
 systemctl list-units --type=service</code></pre>
         `
       },
       {
-        title: '自訂服務',
+        title: 'Custom Services',
         content: `
-          <p>在 <code>/etc/systemd/system/</code> 建立 unit 檔案：</p>
+          <p>Create a unit file in <code>/etc/systemd/system/</code>:</p>
           <pre><code>[Unit]
 Description=My Application
 After=network.target
@@ -427,29 +427,29 @@ RestartSec=5
 
 [Install]
 WantedBy=multi-user.target</code></pre>
-          <pre><code># 重新載入設定
+          <pre><code># Reload configuration
 sudo systemctl daemon-reload
 
-# 啟動自訂服務
+# Start custom service
 sudo systemctl enable --now myapp.service</code></pre>
         `
       },
       {
-        title: '日誌查詢 (journalctl)',
+        title: 'Log Queries (journalctl)',
         content: `
-          <pre><code># 查看特定服務日誌
+          <pre><code># View logs for a specific service
 journalctl -u nginx
 
-# 即時追蹤
+# Follow in real-time
 journalctl -u nginx -f
 
-# 查看最近 1 小時
+# View last hour
 journalctl --since "1 hour ago"
 
-# 查看開機日誌
+# View boot logs
 journalctl -b
 
-# 依照優先權篩選
+# Filter by priority
 journalctl -p err</code></pre>
         `
       }
@@ -458,29 +458,29 @@ journalctl -p err</code></pre>
   {
     id: 'docker',
     icon: '🐳',
-    title: 'Docker 容器',
-    description: '學習容器化部署、映像檔管理與 Compose 編排',
+    title: 'Docker Containers',
+    description: 'Learn containerized deployment, image management, and Compose orchestration',
     sections: [
       {
-        title: '基本操作',
+        title: 'Basic Operations',
         content: `
-          <pre><code># 拉取映像檔
+          <pre><code># Pull an image
 docker pull nginx:latest
 
-# 執行容器
+# Run a container
 docker run -d -p 8080:80 --name web nginx
 
-# 查看執行中容器
+# List running containers
 docker ps
 
-# 停止/移除容器
+# Stop/remove a container
 docker stop web
 docker rm web
 
-# 查看日誌
+# View logs
 docker logs -f web
 
-# 進入容器
+# Enter a container
 docker exec -it web bash</code></pre>
         `
       },
@@ -500,10 +500,10 @@ EXPOSE 3000
 
 USER node
 CMD ["node", "server.js"]</code></pre>
-          <pre><code># 建置映像檔
+          <pre><code># Build image
 docker build -t myapp:1.0 .
 
-# 推送到 Registry
+# Push to registry
 docker tag myapp:1.0 registry.example.com/myapp:1.0
 docker push registry.example.com/myapp:1.0</code></pre>
         `
@@ -532,74 +532,73 @@ services:
 
 volumes:
   pgdata:</code></pre>
-          <pre><code># 啟動
+          <pre><code># Start
 docker compose up -d
 
-# 查看狀態
+# Check status
 docker compose ps
 
-# 停止並移除
+# Stop and remove
 docker compose down</code></pre>
         `
       }
     ]
-  }
-  ,
+  },
   {
     id: 'ebpf',
     icon: '🔬',
     title: 'eBPF',
-    description: '深入學習 eBPF — 在核心中安全執行自訂程式，實現高效能觀測、網路與安全',
+    description: 'Learn eBPF — safely run custom programs in the kernel for observability, networking, and security',
     sections: [
       {
-        title: '1. 什麼是 eBPF？',
+        title: '1. What is eBPF?',
         content: `
-          <p><strong>eBPF (extended Berkeley Packet Filter)</strong> 是一項 Linux 核心技術，允許在不修改核心原始碼、不載入核心模組的前提下，於核心中安全執行使用者自訂的沙箱程式。</p>
-          <p>它最初源自封包過濾（BPF），但現在已遠遠超越網路領域，廣泛應用於：</p>
+          <p><strong>eBPF (extended Berkeley Packet Filter)</strong> is a Linux kernel technology that allows running user-defined sandboxed programs in the kernel without modifying kernel source code or loading kernel modules.</p>
+          <p>Originally derived from packet filtering (BPF), it now extends far beyond networking into:</p>
           <ul>
-            <li><strong>可觀測性 (Observability)</strong> — 追蹤系統呼叫、函式延遲、I/O 行為</li>
-            <li><strong>網路 (Networking)</strong> — 高速封包處理、負載平衡 (如 Cilium)</li>
-            <li><strong>安全 (Security)</strong> — 執行期策略強制、異常行為偵測 (如 Falco、Tetragon)</li>
-            <li><strong>效能分析 (Profiling)</strong> — CPU flamegraph、記憶體追蹤</li>
+            <li><strong>Observability</strong> — Trace syscalls, function latency, I/O behavior</li>
+            <li><strong>Networking</strong> — High-speed packet processing, load balancing (e.g., Cilium)</li>
+            <li><strong>Security</strong> — Runtime policy enforcement, anomaly detection (e.g., Falco, Tetragon)</li>
+            <li><strong>Profiling</strong> — CPU flamegraphs, memory tracing</li>
           </ul>
-          <p>參考資源：<a href="https://ebpf.io/" target="_blank">ebpf.io</a></p>
+          <p>Reference: <a href="https://ebpf.io/" target="_blank">ebpf.io</a></p>
         `
       },
       {
-        title: '2. 核心架構與原理',
+        title: '2. Core Architecture & Principles',
         content: `
-          <p>一支 eBPF 程式的生命週期：</p>
+          <p>Lifecycle of an eBPF program:</p>
           <ol>
-            <li><strong>撰寫</strong> — 使用受限 C 語言撰寫 eBPF 程式</li>
-            <li><strong>編譯</strong> — 透過 Clang/LLVM 編譯為 eBPF bytecode</li>
-            <li><strong>驗證 (Verifier)</strong> — 核心驗證器確保程式安全（無無限迴圈、不越界存取、512 byte stack 限制）</li>
-            <li><strong>JIT 編譯</strong> — bytecode 被 JIT 編譯為原生機器碼，接近零額外開銷</li>
-            <li><strong>掛載 (Attach)</strong> — 掛到指定的 Hook 點執行</li>
+            <li><strong>Write</strong> — Author the eBPF program in restricted C</li>
+            <li><strong>Compile</strong> — Compile to eBPF bytecode via Clang/LLVM</li>
+            <li><strong>Verify</strong> — Kernel verifier ensures safety (no infinite loops, no out-of-bounds access, 512-byte stack limit)</li>
+            <li><strong>JIT Compile</strong> — Bytecode JIT-compiled to native machine code for near-zero overhead</li>
+            <li><strong>Attach</strong> — Attach to a designated hook point for execution</li>
           </ol>
-          <h4>Hook 類型</h4>
+          <h4>Hook Types</h4>
           <ul>
-            <li><code>kprobe / kretprobe</code> — 核心函式進入/返回</li>
-            <li><code>tracepoint</code> — 核心靜態追蹤點</li>
-            <li><code>uprobe / uretprobe</code> — 使用者空間函式追蹤</li>
-            <li><code>XDP (eXpress Data Path)</code> — 網路卡驅動層的極早期封包處理</li>
-            <li><code>TC (Traffic Control)</code> — 網路流量控制層</li>
-            <li><code>perf_event</code> — 硬體/軟體效能事件</li>
-            <li><code>LSM (Linux Security Modules)</code> — 安全策略掛勾</li>
+            <li><code>kprobe / kretprobe</code> — Kernel function entry/return</li>
+            <li><code>tracepoint</code> — Kernel static tracing points</li>
+            <li><code>uprobe / uretprobe</code> — Userspace function tracing</li>
+            <li><code>XDP (eXpress Data Path)</code> — Earliest packet processing at NIC driver level</li>
+            <li><code>TC (Traffic Control)</code> — Network traffic control layer</li>
+            <li><code>perf_event</code> — Hardware/software performance events</li>
+            <li><code>LSM (Linux Security Modules)</code> — Security policy hooks</li>
           </ul>
-          <h4>Maps（資料結構）</h4>
-          <p>eBPF Maps 是核心與使用者空間之間的共享資料結構：</p>
-          <pre><code>常見 Map 類型：
-BPF_MAP_TYPE_HASH         — 雜湊表
-BPF_MAP_TYPE_ARRAY        — 陣列
-BPF_MAP_TYPE_PERF_EVENT_ARRAY — 事件緩衝區
-BPF_MAP_TYPE_RINGBUF      — 高效環形緩衝區
-BPF_MAP_TYPE_LRU_HASH     — LRU 淘汰雜湊表</code></pre>
+          <h4>Maps (Data Structures)</h4>
+          <p>eBPF Maps are shared data structures between kernel and userspace:</p>
+          <pre><code>Common Map types:
+BPF_MAP_TYPE_HASH         — Hash table
+BPF_MAP_TYPE_ARRAY        — Array
+BPF_MAP_TYPE_PERF_EVENT_ARRAY — Event buffer
+BPF_MAP_TYPE_RINGBUF      — High-performance ring buffer
+BPF_MAP_TYPE_LRU_HASH     — LRU-eviction hash table</code></pre>
         `
       },
       {
-        title: '3. 開發環境建置',
+        title: '3. Development Environment Setup',
         content: `
-          <p>根據你的發行版安裝必要工具：</p>
+          <p>Install the required tools for your distribution:</p>
           <pre><code># === Ubuntu / Debian ===
 sudo apt update
 sudo apt install -y \\
@@ -618,68 +617,68 @@ sudo dnf install -y \\
   clang llvm \\
   libbpf-devel
 
-# === 驗證安裝 ===
-# 確認核心版本 >= 4.15（建議 5.8+）
+# === Verify installation ===
+# Ensure kernel version >= 4.15 (5.8+ recommended)
 uname -r
 
-# 測試 bpftrace
+# Test bpftrace
 sudo bpftrace -e 'BEGIN { printf("eBPF works!\\n"); exit(); }'</code></pre>
-          <p><strong>核心版本建議：</strong></p>
+          <p><strong>Kernel version recommendations:</strong></p>
           <ul>
-            <li>4.15+ — 基本 eBPF 支援</li>
+            <li>4.15+ — Basic eBPF support</li>
             <li>5.3+ — BPF trampolines, bounded loops</li>
-            <li>5.8+ — ringbuf、CO-RE BTF 完整支援</li>
-            <li>5.15+ — 完整 BTF for modules</li>
+            <li>5.8+ — ringbuf, full CO-RE BTF support</li>
+            <li>5.15+ — Full BTF for modules</li>
           </ul>
         `
       },
       {
-        title: '4. BCC 工具實戰',
+        title: '4. BCC Tools in Practice',
         content: `
-          <p><a href="https://github.com/iovisor/bcc" target="_blank">BCC (BPF Compiler Collection)</a> 提供了大量現成的追蹤工具，可直接使用：</p>
-          <pre><code># 追蹤行程執行
+          <p><a href="https://github.com/iovisor/bcc" target="_blank">BCC (BPF Compiler Collection)</a> provides many ready-to-use tracing tools:</p>
+          <pre><code># Trace process execution
 sudo execsnoop-bpfcc
 
-# 追蹤 TCP 連線
+# Trace TCP connections
 sudo tcpconnect-bpfcc
 
-# 追蹤檔案開啟
+# Trace file opens
 sudo opensnoop-bpfcc
 
-# 追蹤 block I/O 延遲
+# Trace block I/O latency
 sudo biolatency-bpfcc
 
-# 追蹤高延遲系統呼叫
+# Trace high-latency syscalls
 sudo syscount-bpfcc -L
 
-# 追蹤 DNS 查詢
+# Trace DNS lookups
 sudo gethostlatency-bpfcc
 
-# 追蹤 CPU 上的函式 (產生 flamegraph 資料)
+# Profile CPU functions (generate flamegraph data)
 sudo profile-bpfcc -F 99 -p PID 10</code></pre>
-          <p><strong>bpftrace — 單行追蹤利器：</strong></p>
-          <pre><code># 統計系統呼叫次數（按行程）
+          <p><strong>bpftrace — One-liner tracing tool:</strong></p>
+          <pre><code># Count syscalls by process
 sudo bpftrace -e 'tracepoint:raw_syscalls:sys_enter { @[comm] = count(); }'
 
-# 追蹤 open() 系統呼叫的檔案名稱
+# Trace open() syscall file names
 sudo bpftrace -e 'tracepoint:syscalls:sys_enter_openat { printf("%s %s\\n", comm, str(args->filename)); }'
 
-# 統計 VFS read 大小分佈
+# Histogram of VFS read sizes
 sudo bpftrace -e 'kprobe:vfs_read { @bytes = hist(arg2); }'
 
-# 追蹤行程排程延遲
+# Trace process scheduling wakeups
 sudo bpftrace -e 'tracepoint:sched:sched_wakeup { @[comm] = count(); }'</code></pre>
         `
       },
       {
-        title: '5. 用 BCC Python 寫第一支程式',
+        title: '5. Writing Your First BCC Python Program',
         content: `
-          <p>BCC 提供 Python 前端，讓你可以快速撰寫自訂的 eBPF 程式：</p>
+          <p>BCC provides a Python frontend for quickly writing custom eBPF programs:</p>
           <pre><code>#!/usr/bin/env python3
-# hello_ebpf.py — 追蹤 clone() 系統呼叫（新行程建立）
+# hello_ebpf.py — Trace clone() syscall (new process creation)
 from bcc import BPF
 
-# eBPF 程式 (C 語言)
+# eBPF program (C language)
 bpf_program = """
 int hello_world(void *ctx) {
     bpf_trace_printk("Hello eBPF! New process created\\\\n");
@@ -687,16 +686,16 @@ int hello_world(void *ctx) {
 }
 """
 
-# 載入並掛載到 clone 系統呼叫
+# Load and attach to clone syscall
 b = BPF(text=bpf_program)
 b.attach_kprobe(event=b.get_syscall_fnname("clone"), fn_name="hello_world")
 
 print("Tracing new processes... Ctrl+C to exit")
 b.trace_print()</code></pre>
 
-          <p><strong>進階範例 — 統計系統呼叫延遲：</strong></p>
+          <p><strong>Advanced example — Measuring syscall latency:</strong></p>
           <pre><code>#!/usr/bin/env python3
-# syscall_latency.py — 測量 read() 系統呼叫延遲
+# syscall_latency.py — Measure read() syscall latency
 from bcc import BPF
 import time
 
@@ -718,7 +717,7 @@ TRACEPOINT_PROBE(syscalls, sys_exit_read) {
     u64 *tsp = start.lookup(&pid);
     if (tsp != 0) {
         u64 delta = bpf_ktime_get_ns() - *tsp;
-        dist.log2l(delta / 1000);  // 微秒
+        dist.log2l(delta / 1000);  // microseconds
         start.delete(&pid);
     }
     return 0;
@@ -735,74 +734,74 @@ except KeyboardInterrupt:
 
 print("\\nread() latency (microseconds):")
 b["dist"].print_log2_hist("usecs")</code></pre>
-          <pre><code># 執行
+          <pre><code># Run
 sudo python3 hello_ebpf.py
 sudo python3 syscall_latency.py</code></pre>
         `
       },
       {
-        title: '6. libbpf + CO-RE 進階開發',
+        title: '6. libbpf + CO-RE Advanced Development',
         content: `
-          <p>BCC 適合原型開發與除錯，但生產環境建議使用 <strong>libbpf + CO-RE</strong>：</p>
+          <p>BCC is great for prototyping, but production environments should use <strong>libbpf + CO-RE</strong>:</p>
           <table style="width:100%; border-collapse:collapse; margin:1rem 0;">
             <tr style="border-bottom:1px solid #30363d;">
-              <th style="text-align:left; padding:0.5rem;">特性</th>
+              <th style="text-align:left; padding:0.5rem;">Feature</th>
               <th style="text-align:left; padding:0.5rem;">BCC</th>
               <th style="text-align:left; padding:0.5rem;">libbpf + CO-RE</th>
             </tr>
             <tr style="border-bottom:1px solid #30363d;">
-              <td style="padding:0.5rem;">編譯時機</td>
-              <td style="padding:0.5rem;">執行時 (需 Clang/LLVM)</td>
-              <td style="padding:0.5rem;">開發時一次編譯</td>
+              <td style="padding:0.5rem;">Compilation</td>
+              <td style="padding:0.5rem;">At runtime (needs Clang/LLVM)</td>
+              <td style="padding:0.5rem;">Once at build time</td>
             </tr>
             <tr style="border-bottom:1px solid #30363d;">
-              <td style="padding:0.5rem;">目標機器依賴</td>
-              <td style="padding:0.5rem;">需 kernel headers</td>
-              <td style="padding:0.5rem;">只需 BTF 資訊</td>
+              <td style="padding:0.5rem;">Target machine deps</td>
+              <td style="padding:0.5rem;">Needs kernel headers</td>
+              <td style="padding:0.5rem;">Only BTF info needed</td>
             </tr>
             <tr style="border-bottom:1px solid #30363d;">
-              <td style="padding:0.5rem;">啟動速度</td>
-              <td style="padding:0.5rem;">慢（需編譯）</td>
-              <td style="padding:0.5rem;">快（預編譯 bytecode）</td>
+              <td style="padding:0.5rem;">Startup speed</td>
+              <td style="padding:0.5rem;">Slow (compilation)</td>
+              <td style="padding:0.5rem;">Fast (pre-compiled bytecode)</td>
             </tr>
             <tr style="border-bottom:1px solid #30363d;">
-              <td style="padding:0.5rem;">資源消耗</td>
-              <td style="padding:0.5rem;">高 (Clang ~100MB)</td>
-              <td style="padding:0.5rem;">低 (~KB 等級)</td>
+              <td style="padding:0.5rem;">Resource usage</td>
+              <td style="padding:0.5rem;">High (Clang ~100MB)</td>
+              <td style="padding:0.5rem;">Low (~KB level)</td>
             </tr>
             <tr>
-              <td style="padding:0.5rem;">適用場景</td>
-              <td style="padding:0.5rem;">原型、一次性除錯</td>
-              <td style="padding:0.5rem;">生產環境工具</td>
+              <td style="padding:0.5rem;">Use case</td>
+              <td style="padding:0.5rem;">Prototyping, one-off debugging</td>
+              <td style="padding:0.5rem;">Production tools</td>
             </tr>
           </table>
-          <p><strong>CO-RE (Compile Once, Run Everywhere)</strong> 利用 BTF（BPF Type Format）在載入時自動調整 struct offset，同一個二進位檔可以跑在不同核心版本上。</p>
-          <pre><code># 確認核心支援 BTF
+          <p><strong>CO-RE (Compile Once, Run Everywhere)</strong> uses BTF (BPF Type Format) to automatically adjust struct offsets at load time, so the same binary runs on different kernel versions.</p>
+          <pre><code># Verify kernel supports BTF
 ls /sys/kernel/btf/vmlinux
 
-# libbpf 專案結構
+# libbpf project structure
 my-ebpf-tool/
 ├── src/
-│   ├── tool.bpf.c      # eBPF 核心程式
-│   ├── tool.c           # 使用者空間程式
-│   └── tool.h           # 共用型別定義
+│   ├── tool.bpf.c      # eBPF kernel program
+│   ├── tool.c           # Userspace program
+│   └── tool.h           # Shared type definitions
 ├── Makefile
-└── vmlinux.h            # 由 bpftool 產生</code></pre>
-          <pre><code># 產生 vmlinux.h（包含所有核心型別）
+└── vmlinux.h            # Generated by bpftool</code></pre>
+          <pre><code># Generate vmlinux.h (contains all kernel types)
 bpftool btf dump file /sys/kernel/btf/vmlinux format c > vmlinux.h
 
-# 編譯 eBPF 程式
+# Compile eBPF program
 clang -O2 -target bpf -g -c tool.bpf.c -o tool.bpf.o
 
-# 產生 skeleton header
+# Generate skeleton header
 bpftool gen skeleton tool.bpf.o > tool.skel.h</code></pre>
         `
       },
       {
-        title: '7. 實戰應用場景',
+        title: '7. Real-World Applications',
         content: `
-          <h4>🌐 網路 — XDP 高速封包處理</h4>
-          <pre><code>// xdp_drop_icmp.bpf.c — 丟棄所有 ICMP 封包
+          <h4>🌐 Networking — XDP High-Speed Packet Processing</h4>
+          <pre><code>// xdp_drop_icmp.bpf.c — Drop all ICMP packets
 #include "vmlinux.h"
 #include &lt;bpf/bpf_helpers.h&gt;
 
@@ -828,45 +827,45 @@ int xdp_drop_icmp(struct xdp_md *ctx) {
     return XDP_PASS;
 }</code></pre>
 
-          <h4>🔒 安全 — 偵測可疑行為</h4>
-          <p>使用 eBPF 監控敏感檔案存取、權限提升等行為，相關專案：</p>
+          <h4>🔒 Security — Detecting Suspicious Behavior</h4>
+          <p>Use eBPF to monitor sensitive file access, privilege escalation, etc. Related projects:</p>
           <ul>
-            <li><strong>Falco</strong> — 執行期威脅偵測</li>
-            <li><strong>Tetragon</strong> — Cilium 的安全可觀測引擎</li>
-            <li><strong>Tracee</strong> — 容器安全追蹤</li>
+            <li><strong>Falco</strong> — Runtime threat detection</li>
+            <li><strong>Tetragon</strong> — Cilium's security observability engine</li>
+            <li><strong>Tracee</strong> — Container security tracing</li>
           </ul>
 
-          <h4>📊 效能分析 — 全方位系統診斷</h4>
-          <pre><code># CPU 火焰圖
+          <h4>📊 Performance Analysis — Full System Diagnostics</h4>
+          <pre><code># CPU flamegraph
 sudo profile-bpfcc -F 99 30 > profile.out
-# 配合 flamegraph.pl 產生 SVG
+# Use with flamegraph.pl to generate SVG
 
-# I/O 延遲熱力圖
+# I/O latency heatmap
 sudo biolatency-bpfcc -m
 
-# 記憶體洩漏追蹤
+# Memory leak tracing
 sudo memleak-bpfcc -p PID
 
-# TCP 重傳追蹤
+# TCP retransmission tracing
 sudo tcpretrans-bpfcc
 
-# 檔案系統延遲
+# Filesystem latency
 sudo ext4slower-bpfcc 1</code></pre>
 
-          <h4>📚 學習路線建議</h4>
+          <h4>📚 Recommended Learning Path</h4>
           <ol>
-            <li>先用 <code>bpftrace</code> 寫單行追蹤，培養直覺</li>
-            <li>使用 BCC 現成工具診斷真實問題</li>
-            <li>用 BCC Python 寫自訂追蹤工具</li>
-            <li>學習 libbpf + CO-RE 開發正式工具</li>
-            <li>深入特定領域（XDP 網路、LSM 安全）</li>
+            <li>Start with <code>bpftrace</code> one-liners to build intuition</li>
+            <li>Use BCC ready-made tools to diagnose real problems</li>
+            <li>Write custom tracing tools with BCC Python</li>
+            <li>Learn libbpf + CO-RE for production-grade tools</li>
+            <li>Specialize in a domain (XDP networking, LSM security)</li>
           </ol>
-          <p><strong>推薦閱讀：</strong></p>
+          <p><strong>Recommended Reading:</strong></p>
           <ul>
-            <li><a href="https://ebpf.io/" target="_blank">ebpf.io</a> — 官方入口</li>
-            <li><a href="https://github.com/iovisor/bcc" target="_blank">iovisor/bcc</a> — BCC 工具集</li>
-            <li>Brendan Gregg《BPF Performance Tools》</li>
-            <li>Liz Rice《Learning eBPF》</li>
+            <li><a href="https://ebpf.io/" target="_blank">ebpf.io</a> — Official portal</li>
+            <li><a href="https://github.com/iovisor/bcc" target="_blank">iovisor/bcc</a> — BCC toolkit</li>
+            <li>Brendan Gregg, <em>BPF Performance Tools</em></li>
+            <li>Liz Rice, <em>Learning eBPF</em></li>
           </ul>
         `
       }

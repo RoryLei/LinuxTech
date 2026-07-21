@@ -1,26 +1,27 @@
-# Skill: 內容審查與改善
+# Skill: Content Review & Improvement
 
-## 說明
-審查現有主題內容的正確性、完整性與可讀性，並提出改善建議。
+## Description
+Review existing topic content for correctness, completeness, and readability, then suggest or apply improvements.
 
-## 觸發條件
-使用者要求檢查或改善某個主題的內容。
+## Trigger
+User requests checking or improving a topic's content.
 
-## 步驟
+## Steps
 
-1. **讀取主題資料** — 打開 `js/topics.js`，找到目標主題
-2. **檢查項目**：
-   - 技術資訊是否正確且最新
-   - 程式碼範例是否可執行
-   - 內容是否由淺入深排列
-   - 是否有足夠的實戰範例
-   - HTML 標籤是否正確閉合
-3. **搜尋最新資訊** — 用 web search 確認工具版本與語法是否過時
-4. **修改內容** — 更新 `topics.js` 中對應的 sections
-5. **驗證** — `node --check js/topics.js`
+1. **Read topic data** — Open `js/topics.js` and locate the target topic
+2. **Review checklist**:
+   - Is the technical information accurate and up-to-date?
+   - Are code examples executable?
+   - Are sections ordered from introductory to advanced?
+   - Are there enough real-world examples?
+   - Are HTML tags properly closed?
+3. **Search for latest info** — Use web search to verify tool versions and syntax
+4. **Modify content** — Update the corresponding sections in `topics.js`
+5. **Verify** — `node --check js/topics.js`
 
-## 品質標準
-- 每個主題至少 5 個 sections
-- 每個 section 包含說明文字 + 可執行程式碼
-- 指令需附上簡要註解
-- 提供官方文件連結
+## Quality Standards
+- Each topic should have at least 5 sections
+- Each section includes explanatory text + executable code
+- Commands include brief comments
+- Official documentation links provided
+- All content in English

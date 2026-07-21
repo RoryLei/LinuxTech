@@ -1,28 +1,28 @@
-# Skill: 研究技術主題
+# Skill: Research Technology Topic
 
-## 說明
-深入研究某個 Linux 技術，產出學習路徑規劃與重點摘要，作為新增主題前的前置工作。
+## Description
+Deep-dive into a Linux technology to produce a learning path plan and key takeaways, as pre-work before adding a new topic.
 
-## 觸發條件
-使用者要求研究某個新技術或想了解一個主題應包含哪些內容。
+## Trigger
+User requests researching a new technology or wants to understand what a topic should contain.
 
-## 步驟
+## Steps
 
-1. **搜尋官方資源** — 找到官方網站、GitHub repo、核心文件
-2. **搜尋教學資源** — 找到入門教學、best practices、常見 use cases
-3. **規劃學習路徑** — 由淺入深排列（概念 → 原理 → 安裝 → 基礎 → 進階 → 實戰）
-4. **產出摘要** — 整理為結構化的 sections 大綱，每個 section 列出重點
-5. **列出參考連結** — 彙整有用的學習資源 URL
+1. **Search official resources** — Find the official website, GitHub repo, and kernel docs
+2. **Search tutorials** — Find beginner guides, best practices, and common use cases
+3. **Plan learning path** — Arrange from introductory to advanced (Concept → Theory → Install → Basics → Advanced → Real-world)
+4. **Produce summary** — Organize into a structured sections outline with key points per section
+5. **List references** — Compile useful learning resource URLs
 
-## 輸出格式
+## Output Format
 ```markdown
-## 主題名稱
+## Topic Name
 
-### 學習路徑
-1. 段落一 - 重點
-2. 段落二 - 重點
+### Learning Path
+1. Section one - key points
+2. Section two - key points
 ...
 
-### 推薦資源
-- [資源名稱](URL) — 簡述
+### Recommended Resources
+- [Resource name](URL) — brief description
 ```

@@ -96,7 +96,7 @@
     }).join('');
 
     return '<section class="topic-page">' +
-      '<button class="topic-page__back" onclick="window.location.hash=\'\'">&larr; 回到主題列表</button>' +
+      '<button class="topic-page__back" onclick="window.location.hash=\'\'">&larr; Back to Topics</button>' +
       '<div class="topic-page__header">' +
         '<h2>' + topic.icon + ' ' + topic.title + '</h2>' +
         '<p>' + topic.description + '</p>' +
