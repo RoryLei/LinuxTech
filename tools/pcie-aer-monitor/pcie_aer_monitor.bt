@@ -1,0 +1,74 @@
+#!/usr/bin/env bpftrace
+/*
+ * pcie_aer_monitor.bt — bpftrace PCIe AER Error Monitor
+ *
+ * Traces the ras:aer_event kernel tracepoint to capture PCIe AER errors
+ * in real-time with minimal overhead.
+ *
+ * Requirements:
+ *   - Linux kernel >= 4.10 with CONFIG_PCIEAER
+ *   - bpftrace installed
+ *   - Root privileges
+ *
+ * Usage:
+ *   sudo bpftrace pcie_aer_monitor.bt
+ *
+ * Severity values:
+ *   0 = Uncorrected Non-Fatal
+ *   1 = Fatal
+ *   2 = Corrected
+ */
+
+BEGIN
+{
+    printf("==========================================================\n");
+    printf("  PCIe AER Error Monitor (bpftrace)\n");
+    printf("==========================================================\n");
+    printf("  Severity: 0=Non-Fatal, 1=Fatal, 2=Corrected\n");
+    printf("  Waiting for PCIe AER events... (Ctrl+C for summary)\n");
+    printf("==========================================================\n\n");
+
+    @severity_name[0] = "Non-Fatal";
+    @severity_name[1] = "Fatal";
+    @severity_name[2] = "Corrected";
+}
+
+tracepoint:ras:aer_event
+{
+    $dev = args->dev_name;
+    $status = args->status;
+    $severity = args->severity;
+    $tlp_valid = args->tlp_header_valid;
+
+    // Print event
+    time("[%H:%M:%S] ");
+    printf("Device: %s | Severity: %s | Status: 0x%08x",
+           str($dev),
+           @severity_name[$severity],
+           $status);
+
+    if ($tlp_valid) {
+        printf(" | TLP: %08x %08x %08x %08x",
+               args->tlp_header[0],
+               args->tlp_header[1],
+               args->tlp_header[2],
+               args->tlp_header[3]);
+    }
+    printf("\n");
+
+    // Accumulate statistics
+    @events_total = count();
+    @events_by_device[str($dev)] = count();
+    @events_by_severity[@severity_name[$severity]] = count();
+    @status_histogram[$severity] = lhist($status, 0, 0x04000000, 0x1000);
+}
+
+END
+{
+    printf("\n==========================================================\n");
+    printf("  PCIe AER Summary\n");
+    printf("==========================================================\n");
+
+    // Clean up internal maps
+    clear(@severity_name);
+}
