@@ -73,8 +73,8 @@ TRACEPOINT_PROBE(ras, aer_event) {
             return 0;
     }
 
-    // Fill event data
-    bpf_probe_read_str(&evt.dev_name, sizeof(evt.dev_name), args->dev_name);
+    // Fill event data — dev_name is __data_loc, use TP_DATA_LOC_READ_STR
+    TP_DATA_LOC_READ_STR(&evt.dev_name, dev_name, sizeof(evt.dev_name));
     evt.status = args->status;
     evt.severity = args->severity;
     evt.tlp_header_valid = args->tlp_header_valid;
