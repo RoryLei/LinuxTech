@@ -1196,5 +1196,420 @@ Userspace (decode → output/alert)</code></pre>
         `
       }
     ]
+  },
+  {
+    id: 'i2c-i3c',
+    icon: '🔗',
+    title: 'I2C & I3C',
+    description: 'Master the I2C/I3C serial bus protocols, Linux kernel subsystem, and userspace tools',
+    sections: [
+      {
+        title: '1. What is I2C?',
+        content: `
+          <p><strong>I2C (Inter-Integrated Circuit)</strong> is a synchronous, multi-controller, multi-target serial bus invented by Philips in 1982. It uses just two wires to connect multiple devices:</p>
+          <ul>
+            <li><strong>SDA</strong> — Serial Data (bidirectional)</li>
+            <li><strong>SCL</strong> — Serial Clock (driven by controller)</li>
+          </ul>
+          <h4>Key Characteristics</h4>
+          <ul>
+            <li>7-bit or 10-bit device addressing</li>
+            <li>Open-drain bus with pull-up resistors</li>
+            <li>Multi-controller support with arbitration</li>
+            <li>Simple protocol: START, Address, R/W, Data, ACK/NACK, STOP</li>
+          </ul>
+          <h4>Speed Modes</h4>
+          <table style="width:100%; border-collapse:collapse; margin:1rem 0;">
+            <tr style="border-bottom:1px solid #30363d;">
+              <th style="text-align:left; padding:0.5rem;">Mode</th>
+              <th style="text-align:left; padding:0.5rem;">Max Speed</th>
+              <th style="text-align:left; padding:0.5rem;">Use Case</th>
+            </tr>
+            <tr style="border-bottom:1px solid #30363d;">
+              <td style="padding:0.5rem;">Standard Mode</td><td style="padding:0.5rem;">100 kHz</td><td style="padding:0.5rem;">Simple sensors, EEPROMs</td>
+            </tr>
+            <tr style="border-bottom:1px solid #30363d;">
+              <td style="padding:0.5rem;">Fast Mode</td><td style="padding:0.5rem;">400 kHz</td><td style="padding:0.5rem;">Most peripherals</td>
+            </tr>
+            <tr style="border-bottom:1px solid #30363d;">
+              <td style="padding:0.5rem;">Fast Mode Plus</td><td style="padding:0.5rem;">1 MHz</td><td style="padding:0.5rem;">Higher throughput sensors</td>
+            </tr>
+            <tr style="border-bottom:1px solid #30363d;">
+              <td style="padding:0.5rem;">High Speed Mode</td><td style="padding:0.5rem;">3.4 MHz</td><td style="padding:0.5rem;">High-bandwidth devices</td>
+            </tr>
+            <tr>
+              <td style="padding:0.5rem;">Ultra Fast Mode</td><td style="padding:0.5rem;">5 MHz</td><td style="padding:0.5rem;">Unidirectional push-pull</td>
+            </tr>
+          </table>
+          <h4>I2C Transaction Format</h4>
+          <pre><code>START → [7-bit Addr + R/W] → ACK → [Data Byte] → ACK → ... → STOP
+
+Example: Write 0x42 to register 0x10 of device at address 0x48
+  START → [0x48 + W] → ACK → [0x10] → ACK → [0x42] → ACK → STOP
+
+Example: Read 2 bytes from register 0x00 of device 0x50
+  START → [0x50 + W] → ACK → [0x00] → ACK →
+  RESTART → [0x50 + R] → ACK → [Data0] → ACK → [Data1] → NACK → STOP</code></pre>
+        `
+      },
+      {
+        title: '2. What is I3C?',
+        content: `
+          <p><strong>I3C (Improved Inter-Integrated Circuit)</strong> is a MIPI Alliance specification designed as the successor to I2C, maintaining backward compatibility while adding modern features:</p>
+          <h4>I3C vs I2C Comparison</h4>
+          <table style="width:100%; border-collapse:collapse; margin:1rem 0;">
+            <tr style="border-bottom:1px solid #30363d;">
+              <th style="text-align:left; padding:0.5rem;">Feature</th>
+              <th style="text-align:left; padding:0.5rem;">I2C</th>
+              <th style="text-align:left; padding:0.5rem;">I3C</th>
+            </tr>
+            <tr style="border-bottom:1px solid #30363d;">
+              <td style="padding:0.5rem;">Max Speed (SDR)</td><td style="padding:0.5rem;">3.4 MHz</td><td style="padding:0.5rem;">12.5 MHz</td>
+            </tr>
+            <tr style="border-bottom:1px solid #30363d;">
+              <td style="padding:0.5rem;">HDR Mode</td><td style="padding:0.5rem;">N/A</td><td style="padding:0.5rem;">Up to 33 MHz (HDR-DDR)</td>
+            </tr>
+            <tr style="border-bottom:1px solid #30363d;">
+              <td style="padding:0.5rem;">Addressing</td><td style="padding:0.5rem;">Static (7/10-bit)</td><td style="padding:0.5rem;">Dynamic (7-bit, assigned at runtime)</td>
+            </tr>
+            <tr style="border-bottom:1px solid #30363d;">
+              <td style="padding:0.5rem;">Interrupts</td><td style="padding:0.5rem;">External GPIO pin</td><td style="padding:0.5rem;">In-Band Interrupt (IBI) on SDA</td>
+            </tr>
+            <tr style="border-bottom:1px solid #30363d;">
+              <td style="padding:0.5rem;">Hot-Join</td><td style="padding:0.5rem;">No</td><td style="padding:0.5rem;">Yes (devices join at runtime)</td>
+            </tr>
+            <tr style="border-bottom:1px solid #30363d;">
+              <td style="padding:0.5rem;">Device Discovery</td><td style="padding:0.5rem;">Manual probing</td><td style="padding:0.5rem;">Automatic (DAA procedure)</td>
+            </tr>
+            <tr style="border-bottom:1px solid #30363d;">
+              <td style="padding:0.5rem;">Bus Lines</td><td style="padding:0.5rem;">SDA + SCL (open-drain)</td><td style="padding:0.5rem;">SDA + SCL (push-pull in SDR)</td>
+            </tr>
+            <tr style="border-bottom:1px solid #30363d;">
+              <td style="padding:0.5rem;">Power</td><td style="padding:0.5rem;">Higher (pull-ups)</td><td style="padding:0.5rem;">Lower (push-pull, no pull-ups needed)</td>
+            </tr>
+            <tr>
+              <td style="padding:0.5rem;">Legacy I2C Devices</td><td style="padding:0.5rem;">N/A</td><td style="padding:0.5rem;">Supported on same bus</td>
+            </tr>
+          </table>
+          <h4>I3C Key Concepts</h4>
+          <ul>
+            <li><strong>DAA (Dynamic Address Assignment)</strong> — Controller assigns addresses to targets at bus init</li>
+            <li><strong>CCC (Common Command Codes)</strong> — Standardized commands all I3C devices understand</li>
+            <li><strong>IBI (In-Band Interrupt)</strong> — Targets request controller attention via SDA without extra GPIO</li>
+            <li><strong>HDR (High Data Rate)</strong> — DDR, Ternary modes for higher throughput</li>
+            <li><strong>Hot-Join</strong> — Devices can be connected while bus is active</li>
+          </ul>
+          <p>Reference: <a href="https://mipi.org/resources/I3C-frequently-asked-questions" target="_blank">MIPI I3C FAQ</a></p>
+        `
+      },
+      {
+        title: '3. Linux I2C Subsystem',
+        content: `
+          <p>The Linux kernel I2C subsystem consists of:</p>
+          <ul>
+            <li><strong>I2C Core</strong> — Bus registration, device/driver matching</li>
+            <li><strong>Adapter Drivers</strong> — Platform-specific controller drivers (e.g., i2c-designware, i2c-bcm2835)</li>
+            <li><strong>Client Drivers</strong> — Device-specific drivers (e.g., sensors, EEPROMs)</li>
+            <li><strong>i2c-dev</strong> — Exposes I2C buses as /dev/i2c-N for userspace access</li>
+          </ul>
+          <pre><code># Load i2c-dev module for userspace access
+sudo modprobe i2c-dev
+
+# List available I2C buses
+i2cdetect -l
+
+# Scan bus 1 for devices (shows address grid)
+sudo i2cdetect -y 1
+
+# Example output:
+#      0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f
+# 00:          -- -- -- -- -- -- -- -- -- -- -- -- --
+# 10: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+# 20: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+# 30: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+# 40: -- -- -- -- -- -- -- -- 48 -- -- -- -- -- -- --
+# 50: 50 -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+
+# Read a byte from device 0x48, register 0x00
+sudo i2cget -y 1 0x48 0x00
+
+# Read a word (2 bytes)
+sudo i2cget -y 1 0x48 0x00 w
+
+# Write a byte to device 0x48, register 0x01
+sudo i2cset -y 1 0x48 0x01 0xFF
+
+# Dump all registers of a device
+sudo i2cdump -y 1 0x48
+
+# Transfer raw I2C messages
+sudo i2ctransfer -y 1 w2@0x48 0x00 0x01 r4</code></pre>
+          <h4>sysfs Interface</h4>
+          <pre><code># View I2C bus info
+ls /sys/bus/i2c/devices/
+
+# View adapter details
+cat /sys/bus/i2c/devices/i2c-1/name
+
+# View device driver binding
+ls /sys/bus/i2c/devices/1-0048/
+cat /sys/bus/i2c/devices/1-0048/name</code></pre>
+        `
+      },
+      {
+        title: '4. Linux I3C Subsystem',
+        content: `
+          <p>Linux kernel I3C support was introduced in kernel 5.0. The subsystem lives under <code>drivers/i3c/</code>:</p>
+          <ul>
+            <li><strong>I3C Core</strong> — Bus management, DAA, CCC handling</li>
+            <li><strong>Master Drivers</strong> — Controller-specific (e.g., dw-i3c-master, svc-i3c-master)</li>
+            <li><strong>Device Drivers</strong> — Target device drivers</li>
+            <li><strong>i3c-dev (WIP)</strong> — Userspace access similar to i2c-dev</li>
+          </ul>
+          <h4>Kernel Configuration</h4>
+          <pre><code># Check if I3C is enabled
+grep CONFIG_I3C /boot/config-$(uname -r)
+
+# Required options:
+# CONFIG_I3C=y (or m)
+# CONFIG_I3C_MASTER_DW=m       (DesignWare controller)
+# CONFIG_I3C_MASTER_SVC=m      (Silvaco controller)
+# CONFIG_I3C_MASTER_CDNS=m     (Cadence controller)</code></pre>
+          <h4>Device Tree Binding (ARM/embedded)</h4>
+          <pre><code>/* Example: DesignWare I3C controller in device tree */
+i3c0: i3c@d040000 {
+    compatible = "snps,dw-i3c-master-1.00a";
+    reg = <0xd040000 0x1000>;
+    interrupts = <GIC_SPI 65 IRQ_TYPE_LEVEL_HIGH>;
+    clocks = <&clk_i3c>;
+    #address-cells = <3>;
+    #size-cells = <0>;
+
+    /* I3C target device (dynamic address assigned) */
+    sensor@0,0x6c,0x0 {
+        reg = <0 0x6c 0x0>;
+        /* Provisional ID: manuf_id, part_id, instance */
+    };
+
+    /* Legacy I2C device on I3C bus */
+    eeprom@50 {
+        compatible = "atmel,24c02";
+        reg = <0x50 0x0 0x0>;
+    };
+};</code></pre>
+          <h4>I3C sysfs</h4>
+          <pre><code># List I3C buses
+ls /sys/bus/i3c/devices/
+
+# View I3C device info
+cat /sys/bus/i3c/devices/0-6c00000000/dynamic_address
+cat /sys/bus/i3c/devices/0-6c00000000/pid
+cat /sys/bus/i3c/devices/0-6c00000000/bcr
+cat /sys/bus/i3c/devices/0-6c00000000/dcr</code></pre>
+        `
+      },
+      {
+        title: '5. Writing an I2C Client Driver',
+        content: `
+          <p>A minimal Linux kernel I2C client driver:</p>
+          <pre><code>#include &lt;linux/module.h&gt;
+#include &lt;linux/i2c.h&gt;
+
+/* Probe: called when device is matched */
+static int my_sensor_probe(struct i2c_client *client)
+{
+    u8 chip_id;
+    int ret;
+
+    /* Read chip ID register */
+    ret = i2c_smbus_read_byte_data(client, 0x00);
+    if (ret < 0)
+        return ret;
+
+    chip_id = ret;
+    dev_info(&client->dev, "Sensor detected, chip ID: 0x%02x\\n", chip_id);
+
+    /* Configure sensor: write to config register */
+    ret = i2c_smbus_write_byte_data(client, 0x01, 0x80);
+    if (ret < 0)
+        return ret;
+
+    return 0;
+}
+
+static void my_sensor_remove(struct i2c_client *client)
+{
+    dev_info(&client->dev, "Sensor removed\\n");
+}
+
+/* Device matching table */
+static const struct i2c_device_id my_sensor_id[] = {
+    { "my-sensor", 0 },
+    { }
+};
+MODULE_DEVICE_TABLE(i2c, my_sensor_id);
+
+static const struct of_device_id my_sensor_of_match[] = {
+    { .compatible = "vendor,my-sensor" },
+    { }
+};
+MODULE_DEVICE_TABLE(of, my_sensor_of_match);
+
+static struct i2c_driver my_sensor_driver = {
+    .driver = {
+        .name = "my-sensor",
+        .of_match_table = my_sensor_of_match,
+    },
+    .probe = my_sensor_probe,
+    .remove = my_sensor_remove,
+    .id_table = my_sensor_id,
+};
+module_i2c_driver(my_sensor_driver);
+
+MODULE_LICENSE("GPL");
+MODULE_DESCRIPTION("My I2C Sensor Driver");
+MODULE_AUTHOR("LinuxTech");</code></pre>
+          <h4>SMBus API (most common)</h4>
+          <pre><code>/* Read operations */
+s32 i2c_smbus_read_byte(client);               // Read 1 byte (no register)
+s32 i2c_smbus_read_byte_data(client, reg);     // Read 1 byte from register
+s32 i2c_smbus_read_word_data(client, reg);     // Read 2 bytes from register
+s32 i2c_smbus_read_block_data(client, reg, buf); // Read block
+
+/* Write operations */
+s32 i2c_smbus_write_byte(client, value);
+s32 i2c_smbus_write_byte_data(client, reg, value);
+s32 i2c_smbus_write_word_data(client, reg, value);
+s32 i2c_smbus_write_block_data(client, reg, len, buf);
+
+/* Raw I2C transfer (for non-SMBus devices) */
+int i2c_transfer(adapter, msgs, num_msgs);</code></pre>
+        `
+      },
+      {
+        title: '6. Debugging & Troubleshooting',
+        content: `
+          <h4>Common Issues</h4>
+          <table style="width:100%; border-collapse:collapse; margin:1rem 0;">
+            <tr style="border-bottom:1px solid #30363d;">
+              <th style="text-align:left; padding:0.5rem;">Symptom</th>
+              <th style="text-align:left; padding:0.5rem;">Possible Cause</th>
+              <th style="text-align:left; padding:0.5rem;">Solution</th>
+            </tr>
+            <tr style="border-bottom:1px solid #30363d;">
+              <td style="padding:0.5rem;">Device not detected</td>
+              <td style="padding:0.5rem;">Wrong bus, address conflict, missing pull-ups</td>
+              <td style="padding:0.5rem;">Check wiring, use i2cdetect, verify pull-up resistors</td>
+            </tr>
+            <tr style="border-bottom:1px solid #30363d;">
+              <td style="padding:0.5rem;">NACK on write</td>
+              <td style="padding:0.5rem;">Wrong address, device busy, write-protect</td>
+              <td style="padding:0.5rem;">Verify datasheet address, check WP pin</td>
+            </tr>
+            <tr style="border-bottom:1px solid #30363d;">
+              <td style="padding:0.5rem;">Bus hangs (SDA stuck low)</td>
+              <td style="padding:0.5rem;">Target holding SDA during interrupted transfer</td>
+              <td style="padding:0.5rem;">Toggle SCL 9 times to release, or power cycle</td>
+            </tr>
+            <tr>
+              <td style="padding:0.5rem;">Corrupted data</td>
+              <td style="padding:0.5rem;">Bus capacitance too high, speed too fast</td>
+              <td style="padding:0.5rem;">Lower speed, reduce bus length, adjust pull-ups</td>
+            </tr>
+          </table>
+          <h4>Debugging Commands</h4>
+          <pre><code># Check kernel log for I2C errors
+dmesg | grep -i i2c
+
+# Trace I2C transactions (requires ftrace)
+echo 1 > /sys/kernel/debug/tracing/events/i2c/enable
+cat /sys/kernel/debug/tracing/trace_pipe
+
+# Logic analyzer decode (with sigrok/PulseView)
+sigrok-cli -d fx2lafw -c samplerate=1000000 -P i2c:scl=D0:sda=D1
+
+# Monitor I2C bus with eBPF (trace all transfers)
+sudo bpftrace -e 'kprobe:i2c_transfer {
+  printf("%s: adapter=%s msgs=%d\\n",
+    comm, str(((struct i2c_adapter *)arg0)->name), arg2);
+}'
+
+# Check bus speed
+cat /sys/bus/i2c/devices/i2c-1/bus_clk_rate 2>/dev/null
+
+# Instantiate a device manually (for testing)
+echo "my-sensor 0x48" > /sys/bus/i2c/devices/i2c-1/new_device
+echo "0x48" > /sys/bus/i2c/devices/i2c-1/delete_device</code></pre>
+        `
+      },
+      {
+        title: '7. Practical Examples',
+        content: `
+          <h4>Read Temperature from a Sensor (LM75)</h4>
+          <pre><code># LM75 temperature sensor at address 0x48
+# Temperature register = 0x00 (2 bytes, 9-bit resolution)
+
+# Read raw value
+RAW=$(sudo i2cget -y 1 0x48 0x00 w)
+
+# Parse: swap bytes (SMBus word is little-endian), shift right 7
+# LM75 format: MSB[7:0] = integer, LSB[7] = 0.5 degree
+python3 -c "
+raw = $RAW
+# Swap bytes for big-endian sensor
+msb = raw & 0xFF
+lsb = (raw >> 8) & 0xFF
+temp = ((msb << 8) | lsb) >> 5
+if temp & 0x400:  # negative (11-bit signed)
+    temp -= 2048
+print(f'Temperature: {temp * 0.125:.1f} C')
+"</code></pre>
+          <h4>Write to EEPROM (24C02)</h4>
+          <pre><code># AT24C02 EEPROM at address 0x50
+# 256 bytes, page write = 8 bytes
+
+# Write single byte at address 0x10
+sudo i2cset -y 1 0x50 0x10 0xAB
+
+# Read it back
+sudo i2cget -y 1 0x50 0x10
+# Returns: 0xab
+
+# Write multiple bytes (block write to address 0x20)
+sudo i2ctransfer -y 1 w5@0x50 0x20 0x48 0x65 0x6C 0x6C  # "Hell"
+
+# Read back 4 bytes from address 0x20
+sudo i2ctransfer -y 1 w1@0x50 0x20 r4
+# Returns: 0x48 0x65 0x6c 0x6c</code></pre>
+          <h4>Python Userspace I2C Access</h4>
+          <pre><code>#!/usr/bin/env python3
+# Read temperature from LM75 sensor using smbus2
+import smbus2
+
+BUS = 1
+ADDR = 0x48
+TEMP_REG = 0x00
+
+bus = smbus2.SMBus(BUS)
+
+# Read 2 bytes from temperature register
+data = bus.read_i2c_block_data(ADDR, TEMP_REG, 2)
+raw = (data[0] << 8) | data[1]
+temp = (raw >> 5) * 0.125
+
+if raw & 0x8000:  # negative
+    temp -= 256
+
+print(f"Temperature: {temp:.1f} C")
+bus.close()</code></pre>
+          <p><strong>References:</strong></p>
+          <ul>
+            <li><a href="https://docs.kernel.org/driver-api/i2c.html" target="_blank">Linux Kernel I2C Documentation</a></li>
+            <li><a href="https://docs.kernel.org/driver-api/i3c/protocol.html" target="_blank">Linux Kernel I3C Protocol</a></li>
+            <li><a href="https://mipi.org/resources/I3C-frequently-asked-questions" target="_blank">MIPI I3C FAQ</a></li>
+          </ul>
+        `
+      }
+    ]
   }
 ];
