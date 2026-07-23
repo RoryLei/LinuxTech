@@ -1611,5 +1611,429 @@ bus.close()</code></pre>
         `
       }
     ]
+  },
+  {
+    id: 'gpio',
+    icon: '⚡',
+    title: 'GPIO',
+    description: 'Control General Purpose I/O pins on Linux using libgpiod, character devices, and kernel drivers',
+    sections: [
+      {
+        title: '1. What is GPIO?',
+        content: `
+          <p><strong>GPIO (General Purpose Input/Output)</strong> refers to digital pins on a processor or SoC that can be software-controlled to read or drive logic levels (high/low). They are the fundamental interface for interacting with LEDs, buttons, relays, sensors, and other hardware.</p>
+          <h4>Key Concepts</h4>
+          <ul>
+            <li><strong>Direction</strong> — Input (read external signal) or Output (drive a signal)</li>
+            <li><strong>Value</strong> — 0 (low) or 1 (high)</li>
+            <li><strong>Active-Low</strong> — Logic inverted: physical low = logical active</li>
+            <li><strong>Pull-up / Pull-down</strong> — Internal resistors to bias the pin when floating</li>
+            <li><strong>Interrupt / Edge detection</strong> — Trigger on rising, falling, or both edges</li>
+            <li><strong>Open-drain / Open-source</strong> — Output drives only one direction; needs external pull</li>
+          </ul>
+          <h4>GPIO Controllers (gpiochip)</h4>
+          <p>A GPIO controller manages a bank of pins. A system may have multiple controllers:</p>
+          <pre><code># List all GPIO controllers
+gpiodetect
+
+# Example output:
+# gpiochip0 [pinctrl-bcm2711] (58 lines)
+# gpiochip1 [raspberrypi-exp-gpio] (8 lines)
+
+# On x86 servers:
+# gpiochip0 [INT3450:00] (267 lines)
+# gpiochip1 [INT3450:01] (24 lines)</code></pre>
+        `
+      },
+      {
+        title: '2. Linux GPIO Interfaces (Legacy vs Modern)',
+        content: `
+          <h4>Legacy: sysfs interface (DEPRECATED since kernel 4.8)</h4>
+          <pre><code># DO NOT use in new code — shown only for reference
+echo 17 > /sys/class/gpio/export
+echo out > /sys/class/gpio/gpio17/direction
+echo 1 > /sys/class/gpio/gpio17/value
+echo 17 > /sys/class/gpio/unexport</code></pre>
+          <p><strong>Problems with sysfs:</strong></p>
+          <ul>
+            <li>No ownership tracking — multiple processes can conflict</li>
+            <li>No atomic multi-line operations</li>
+            <li>No event/interrupt support</li>
+            <li>Resources not freed on process exit</li>
+            <li>Race conditions between export/configure/use</li>
+          </ul>
+          <h4>Modern: Character device interface (/dev/gpiochipN)</h4>
+          <p>Since kernel 4.8, the proper interface is via character devices. <strong>libgpiod</strong> provides the userspace library and CLI tools:</p>
+          <ul>
+            <li>Automatic cleanup on file descriptor close</li>
+            <li>Atomic multi-line operations</li>
+            <li>Edge event monitoring (poll/epoll)</li>
+            <li>Ownership and access control</li>
+            <li>Bias configuration (pull-up/down)</li>
+          </ul>
+          <pre><code># Install libgpiod tools
+# Ubuntu/Debian
+sudo apt install gpiod libgpiod-dev
+
+# RHEL/Fedora
+sudo dnf install libgpiod-utils libgpiod-devel
+
+# Arch
+sudo pacman -S libgpiod</code></pre>
+        `
+      },
+      {
+        title: '3. libgpiod CLI Tools',
+        content: `
+          <h4>gpiodetect — List GPIO controllers</h4>
+          <pre><code>gpiodetect
+# gpiochip0 [pinctrl-bcm2711] (58 lines)
+# gpiochip1 [raspberrypi-exp-gpio] (8 lines)</code></pre>
+          <h4>gpioinfo — Show line info for a chip</h4>
+          <pre><code>gpioinfo gpiochip0
+# gpiochip0 - 58 lines:
+#   line  0: "ID_SDA"   unused  input  active-high
+#   line  1: "ID_SCL"   unused  input  active-high
+#   line  2: "GPIO2"    unused  input  active-high
+#   ...
+#   line 17: "GPIO17"  "my-led" output active-high [used]</code></pre>
+          <h4>gpioget — Read line value</h4>
+          <pre><code># Read GPIO 4 on gpiochip0
+gpioget gpiochip0 4
+# Output: 1
+
+# Read multiple lines at once
+gpioget gpiochip0 4 5 6
+# Output: 1 0 1</code></pre>
+          <h4>gpioset — Set output value</h4>
+          <pre><code># Set GPIO 17 high
+gpioset gpiochip0 17=1
+
+# Set GPIO 17 low
+gpioset gpiochip0 17=0
+
+# Set multiple lines atomically
+gpioset gpiochip0 17=1 27=0 22=1
+
+# Hold the line (don't exit immediately)
+gpioset --mode=wait gpiochip0 17=1
+# Line stays driven until Ctrl+C or signal</code></pre>
+          <h4>gpiomon — Monitor edge events</h4>
+          <pre><code># Monitor rising edges on GPIO 4
+gpiomon --rising-edge gpiochip0 4
+# Output:
+# event: RISING EDGE offset: 4 timestamp: [1689012345.123456789]
+
+# Monitor both edges on multiple lines
+gpiomon --falling-edge --rising-edge gpiochip0 4 17 27
+
+# Limit to 10 events then exit
+gpiomon --num-events=10 gpiochip0 4</code></pre>
+          <h4>gpionotify — Watch line state changes</h4>
+          <pre><code># Watch for any config changes on lines
+gpionotify gpiochip0 4 17</code></pre>
+        `
+      },
+      {
+        title: '4. Programming with libgpiod (C & Python)',
+        content: `
+          <h4>C Example — Blink an LED</h4>
+          <pre><code>#include &lt;gpiod.h&gt;
+#include &lt;stdio.h&gt;
+#include &lt;unistd.h&gt;
+
+int main(void) {
+    struct gpiod_chip *chip;
+    struct gpiod_line_request *request;
+    struct gpiod_request_config *req_cfg;
+    struct gpiod_line_settings *settings;
+    struct gpiod_line_config *line_cfg;
+
+    chip = gpiod_chip_open("/dev/gpiochip0");
+    if (!chip) return 1;
+
+    settings = gpiod_line_settings_new();
+    gpiod_line_settings_set_direction(settings, GPIOD_LINE_DIRECTION_OUTPUT);
+
+    line_cfg = gpiod_line_config_new();
+    unsigned int offset = 17;
+    gpiod_line_config_add_line_settings(line_cfg, &offset, 1, settings);
+
+    req_cfg = gpiod_request_config_new();
+    gpiod_request_config_set_consumer(req_cfg, "blink-led");
+
+    request = gpiod_chip_request_lines(chip, req_cfg, line_cfg);
+
+    /* Blink 10 times */
+    for (int i = 0; i < 10; i++) {
+        gpiod_line_request_set_value(request, 17, GPIOD_LINE_VALUE_ACTIVE);
+        sleep(1);
+        gpiod_line_request_set_value(request, 17, GPIOD_LINE_VALUE_INACTIVE);
+        sleep(1);
+    }
+
+    gpiod_line_request_release(request);
+    gpiod_request_config_free(req_cfg);
+    gpiod_line_config_free(line_cfg);
+    gpiod_line_settings_free(settings);
+    gpiod_chip_close(chip);
+    return 0;
+}
+
+/* Compile: gcc -o blink blink.c -lgpiod */</code></pre>
+          <h4>Python Example — Read Button, Drive LED</h4>
+          <pre><code>#!/usr/bin/env python3
+import gpiod
+import time
+
+CHIP = "/dev/gpiochip0"
+LED_LINE = 17
+BUTTON_LINE = 4
+
+with gpiod.request_lines(
+    CHIP,
+    consumer="button-led",
+    config={
+        LED_LINE: gpiod.LineSettings(
+            direction=gpiod.line.Direction.OUTPUT,
+        ),
+        BUTTON_LINE: gpiod.LineSettings(
+            direction=gpiod.line.Direction.INPUT,
+            bias=gpiod.line.Bias.PULL_UP,
+            edge_detection=gpiod.line.Edge.FALLING,
+        ),
+    },
+) as request:
+    print("Waiting for button press...")
+    while True:
+        # Wait for edge event (button press)
+        if request.wait_edge_events(timeout=1):
+            events = request.read_edge_events()
+            for event in events:
+                print(f"Button pressed at {event.timestamp_ns}")
+                # Toggle LED
+                val = request.get_value(LED_LINE)
+                new_val = gpiod.line.Value.INACTIVE if val else gpiod.line.Value.ACTIVE
+                request.set_value(LED_LINE, new_val)</code></pre>
+          <pre><code># Install Python bindings
+pip install gpiod</code></pre>
+        `
+      },
+      {
+        title: '5. Kernel GPIO Driver Development',
+        content: `
+          <p>Kernel drivers use the <strong>gpiolib</strong> framework to consume or provide GPIOs:</p>
+          <h4>Consuming GPIOs in a Driver (Descriptor API)</h4>
+          <pre><code>#include &lt;linux/gpio/consumer.h&gt;
+#include &lt;linux/module.h&gt;
+#include &lt;linux/platform_device.h&gt;
+
+struct my_device {
+    struct gpio_desc *led_gpio;
+    struct gpio_desc *reset_gpio;
+};
+
+static int my_probe(struct platform_device *pdev)
+{
+    struct my_device *priv;
+
+    priv = devm_kzalloc(&pdev->dev, sizeof(*priv), GFP_KERNEL);
+
+    /* Request GPIO from device tree / ACPI */
+    priv->led_gpio = devm_gpiod_get(&pdev->dev, "led", GPIOD_OUT_LOW);
+    if (IS_ERR(priv->led_gpio))
+        return PTR_ERR(priv->led_gpio);
+
+    priv->reset_gpio = devm_gpiod_get(&pdev->dev, "reset", GPIOD_OUT_HIGH);
+    if (IS_ERR(priv->reset_gpio))
+        return PTR_ERR(priv->reset_gpio);
+
+    /* Use GPIOs */
+    gpiod_set_value(priv->led_gpio, 1);    /* LED on */
+
+    /* Pulse reset line */
+    gpiod_set_value(priv->reset_gpio, 0);
+    msleep(10);
+    gpiod_set_value(priv->reset_gpio, 1);
+
+    /* GPIO as interrupt source */
+    int irq = gpiod_to_irq(priv->led_gpio);
+    /* ... request_irq(irq, handler, ...) */
+
+    return 0;
+}</code></pre>
+          <h4>Device Tree GPIO Binding</h4>
+          <pre><code>my-device {
+    compatible = "vendor,my-device";
+    led-gpios = <&gpio0 17 GPIO_ACTIVE_HIGH>;
+    reset-gpios = <&gpio0 27 GPIO_ACTIVE_LOW>;
+};</code></pre>
+          <h4>Registering a GPIO Controller (Provider)</h4>
+          <pre><code>/* Simplified GPIO chip registration */
+#include &lt;linux/gpio/driver.h&gt;
+
+static int my_gpio_get(struct gpio_chip *gc, unsigned int offset)
+{
+    /* Read hardware register */
+    return !!(readl(base + GPIO_DATA_REG) & BIT(offset));
+}
+
+static void my_gpio_set(struct gpio_chip *gc, unsigned int offset, int value)
+{
+    u32 reg = readl(base + GPIO_DATA_REG);
+    if (value)
+        reg |= BIT(offset);
+    else
+        reg &= ~BIT(offset);
+    writel(reg, base + GPIO_DATA_REG);
+}
+
+static struct gpio_chip my_gc = {
+    .label = "my-gpio",
+    .owner = THIS_MODULE,
+    .base = -1,             /* Dynamic allocation */
+    .ngpio = 32,
+    .get = my_gpio_get,
+    .set = my_gpio_set,
+    .direction_input = my_gpio_dir_in,
+    .direction_output = my_gpio_dir_out,
+};
+
+/* Register in probe function */
+gpiochip_add_data(&my_gc, priv);</code></pre>
+        `
+      },
+      {
+        title: '6. GPIO Interrupts & Edge Detection',
+        content: `
+          <h4>Userspace: Event Monitoring with libgpiod</h4>
+          <pre><code># Monitor rising edge on GPIO 4 (button press)
+gpiomon --rising-edge gpiochip0 4
+
+# In Python:
+import gpiod
+
+with gpiod.request_lines(
+    "/dev/gpiochip0",
+    consumer="edge-watcher",
+    config={
+        4: gpiod.LineSettings(
+            direction=gpiod.line.Direction.INPUT,
+            edge_detection=gpiod.line.Edge.BOTH,
+            debounce_period=gpiod.line.Duration(microseconds=5000),
+        ),
+    },
+) as req:
+    while True:
+        if req.wait_edge_events(timeout=5):
+            for event in req.read_edge_events():
+                edge = "RISING" if event.event_type == gpiod.edge.Event.RISING_EDGE else "FALLING"
+                print(f"{edge} on line {event.line_offset} at {event.timestamp_ns}ns")</code></pre>
+          <h4>Kernel: GPIO IRQ in a Driver</h4>
+          <pre><code>#include &lt;linux/interrupt.h&gt;
+#include &lt;linux/gpio/consumer.h&gt;
+
+static irqreturn_t button_irq_handler(int irq, void *dev_id)
+{
+    struct my_device *priv = dev_id;
+    int value = gpiod_get_value(priv->button_gpio);
+    pr_info("Button state: %d\\n", value);
+    return IRQ_HANDLED;
+}
+
+static int my_probe(struct platform_device *pdev)
+{
+    struct my_device *priv;
+    int irq, ret;
+
+    priv->button_gpio = devm_gpiod_get(&pdev->dev, "button", GPIOD_IN);
+    irq = gpiod_to_irq(priv->button_gpio);
+
+    ret = devm_request_threaded_irq(&pdev->dev, irq,
+        NULL, button_irq_handler,
+        IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
+        "my-button", priv);
+
+    return ret;
+}</code></pre>
+          <h4>Debouncing</h4>
+          <pre><code># Hardware debounce (if supported by controller)
+# In device tree:
+button-gpios = <&gpio0 4 GPIO_ACTIVE_LOW>;
+/* driver sets: gpiod_set_debounce(gpio, 5000); // 5ms */
+
+# Software debounce with libgpiod v2:
+# debounce_period parameter in LineSettings (shown above)</code></pre>
+        `
+      },
+      {
+        title: '7. Debugging & Practical Tips',
+        content: `
+          <h4>Debugging Tools</h4>
+          <pre><code># View all GPIO states (kernel debugfs)
+sudo cat /sys/kernel/debug/gpio
+
+# Example output:
+# gpiochip0: GPIOs 0-53, parent: platform/fe200000.gpio, pinctrl-bcm2711:
+#  gpio-4   (                    |button          ) in  hi IRQ
+#  gpio-17  (                    |led             ) out lo
+
+# View pinctrl state
+sudo cat /sys/kernel/debug/pinctrl/fe200000.gpio-pinctrl-bcm2711/pins
+
+# Check for GPIO conflicts
+gpioinfo gpiochip0 | grep "\\[used\\]"
+
+# Trace GPIO operations with ftrace
+echo 1 > /sys/kernel/debug/tracing/events/gpio/enable
+cat /sys/kernel/debug/tracing/trace_pipe
+# gpio_value: 17 set 1
+# gpio_value: 17 set 0</code></pre>
+          <h4>Common Issues</h4>
+          <table style="width:100%; border-collapse:collapse; margin:1rem 0;">
+            <tr style="border-bottom:1px solid #30363d;">
+              <th style="text-align:left; padding:0.5rem;">Problem</th>
+              <th style="text-align:left; padding:0.5rem;">Cause</th>
+              <th style="text-align:left; padding:0.5rem;">Solution</th>
+            </tr>
+            <tr style="border-bottom:1px solid #30363d;">
+              <td style="padding:0.5rem;">Permission denied</td>
+              <td style="padding:0.5rem;">/dev/gpiochipN owned by root</td>
+              <td style="padding:0.5rem;">Add user to <code>gpio</code> group or use udev rules</td>
+            </tr>
+            <tr style="border-bottom:1px solid #30363d;">
+              <td style="padding:0.5rem;">Line busy</td>
+              <td style="padding:0.5rem;">Another process or kernel driver holds the line</td>
+              <td style="padding:0.5rem;">Check <code>gpioinfo</code> for [used], unbind driver if needed</td>
+            </tr>
+            <tr style="border-bottom:1px solid #30363d;">
+              <td style="padding:0.5rem;">Output not toggling</td>
+              <td style="padding:0.5rem;">Pin muxed to alternate function</td>
+              <td style="padding:0.5rem;">Check pinctrl settings in device tree / BIOS</td>
+            </tr>
+            <tr>
+              <td style="padding:0.5rem;">Spurious interrupts</td>
+              <td style="padding:0.5rem;">Floating input, no debounce</td>
+              <td style="padding:0.5rem;">Enable pull-up/down bias, add debounce</td>
+            </tr>
+          </table>
+          <h4>udev Rule for Non-Root GPIO Access</h4>
+          <pre><code># /etc/udev/rules.d/99-gpio.rules
+SUBSYSTEM=="gpio", KERNEL=="gpiochip*", MODE="0660", GROUP="gpio"
+
+# Create gpio group and add user
+sudo groupadd -f gpio
+sudo usermod -aG gpio $USER
+sudo udevadm control --reload-rules
+sudo udevadm trigger</code></pre>
+          <p><strong>References:</strong></p>
+          <ul>
+            <li><a href="https://libgpiod.readthedocs.io/" target="_blank">libgpiod Documentation</a></li>
+            <li><a href="https://docs.kernel.org/driver-api/gpio/index.html" target="_blank">Linux Kernel GPIO Documentation</a></li>
+            <li><a href="https://docs.kernel.org/admin-guide/gpio/sysfs.html" target="_blank">GPIO sysfs (deprecated) Reference</a></li>
+          </ul>
+        `
+      }
+    ]
   }
 ];
