@@ -870,5 +870,331 @@ sudo ext4slower-bpfcc 1</code></pre>
         `
       }
     ]
+  },
+  {
+    id: 'pcie',
+    icon: '🔌',
+    title: 'PCIe (PCI Express)',
+    description: 'Understand PCIe architecture, configuration space, Linux subsystem tools, and AER error handling',
+    sections: [
+      {
+        title: '1. What is PCIe?',
+        content: `
+          <p><strong>PCI Express (PCIe)</strong> is a high-speed serial interconnect standard that replaced legacy parallel PCI/PCI-X buses. It connects CPUs to peripheral devices such as GPUs, NVMe SSDs, NICs, and HBAs.</p>
+          <h4>Key Characteristics</h4>
+          <ul>
+            <li><strong>Serial point-to-point</strong> — Each device has a dedicated link (no shared bus)</li>
+            <li><strong>Lane-based scaling</strong> — x1, x2, x4, x8, x16 lanes for bandwidth scaling</li>
+            <li><strong>Packet-based protocol</strong> — Data transmitted as Transaction Layer Packets (TLPs)</li>
+            <li><strong>Hot-plug capable</strong> — Devices can be added/removed at runtime</li>
+          </ul>
+          <h4>PCIe Generations</h4>
+          <table style="width:100%; border-collapse:collapse; margin:1rem 0;">
+            <tr style="border-bottom:1px solid #30363d;">
+              <th style="text-align:left; padding:0.5rem;">Gen</th>
+              <th style="text-align:left; padding:0.5rem;">Transfer Rate</th>
+              <th style="text-align:left; padding:0.5rem;">x1 Bandwidth</th>
+              <th style="text-align:left; padding:0.5rem;">x16 Bandwidth</th>
+            </tr>
+            <tr style="border-bottom:1px solid #30363d;">
+              <td style="padding:0.5rem;">Gen 1</td><td style="padding:0.5rem;">2.5 GT/s</td><td style="padding:0.5rem;">250 MB/s</td><td style="padding:0.5rem;">4 GB/s</td>
+            </tr>
+            <tr style="border-bottom:1px solid #30363d;">
+              <td style="padding:0.5rem;">Gen 2</td><td style="padding:0.5rem;">5 GT/s</td><td style="padding:0.5rem;">500 MB/s</td><td style="padding:0.5rem;">8 GB/s</td>
+            </tr>
+            <tr style="border-bottom:1px solid #30363d;">
+              <td style="padding:0.5rem;">Gen 3</td><td style="padding:0.5rem;">8 GT/s</td><td style="padding:0.5rem;">~1 GB/s</td><td style="padding:0.5rem;">~16 GB/s</td>
+            </tr>
+            <tr style="border-bottom:1px solid #30363d;">
+              <td style="padding:0.5rem;">Gen 4</td><td style="padding:0.5rem;">16 GT/s</td><td style="padding:0.5rem;">~2 GB/s</td><td style="padding:0.5rem;">~32 GB/s</td>
+            </tr>
+            <tr style="border-bottom:1px solid #30363d;">
+              <td style="padding:0.5rem;">Gen 5</td><td style="padding:0.5rem;">32 GT/s</td><td style="padding:0.5rem;">~4 GB/s</td><td style="padding:0.5rem;">~64 GB/s</td>
+            </tr>
+            <tr>
+              <td style="padding:0.5rem;">Gen 6</td><td style="padding:0.5rem;">64 GT/s</td><td style="padding:0.5rem;">~8 GB/s</td><td style="padding:0.5rem;">~128 GB/s</td>
+            </tr>
+          </table>
+        `
+      },
+      {
+        title: '2. Protocol Layers',
+        content: `
+          <p>PCIe uses a layered protocol architecture (similar to networking):</p>
+          <pre><code>┌─────────────────────────────────┐
+│       Application Layer         │  Software / Driver
+├─────────────────────────────────┤
+│      Transaction Layer (TL)     │  TLPs: Memory Rd/Wr, IO, Config, Msg
+├─────────────────────────────────┤
+│       Data Link Layer (DLL)     │  ACK/NAK, Sequence #, CRC (LCRC)
+├─────────────────────────────────┤
+│       Physical Layer (PHY)      │  Encoding (128b/130b), Electrical, Lanes
+└─────────────────────────────────┘</code></pre>
+          <h4>Transaction Layer</h4>
+          <ul>
+            <li>Generates and consumes <strong>TLPs</strong> (Transaction Layer Packets)</li>
+            <li>TLP types: Memory Read/Write, IO Read/Write, Config Read/Write, Messages</li>
+            <li>Manages flow control using credit-based mechanism</li>
+            <li>Handles ordering rules (relaxed ordering, ID-based ordering)</li>
+          </ul>
+          <h4>Data Link Layer</h4>
+          <ul>
+            <li>Adds sequence number and LCRC to each TLP</li>
+            <li>ACK/NAK protocol for reliable delivery</li>
+            <li>Replay buffer for retransmission on NAK</li>
+            <li>Generates DLLPs (Data Link Layer Packets): ACK, NAK, Flow Control, Power Management</li>
+          </ul>
+          <h4>Physical Layer</h4>
+          <ul>
+            <li>Electrical signaling (differential pairs per lane)</li>
+            <li>Encoding: 8b/10b (Gen 1-2), 128b/130b (Gen 3+)</li>
+            <li>Link training and initialization (LTSSM state machine)</li>
+            <li>Lane reversal and polarity inversion handling</li>
+          </ul>
+        `
+      },
+      {
+        title: '3. PCIe Topology & Addressing',
+        content: `
+          <p>PCIe uses a tree topology with a <strong>Root Complex</strong> at the top:</p>
+          <pre><code>         CPU
+          │
+    Root Complex (RC)
+     ┌────┼────┐
+     │    │    │
+    RP   RP   RP        ← Root Ports
+     │    │    │
+    EP  Switch  EP       ← Endpoints / Switches
+         ┌┼┐
+         │││
+        EP EP EP         ← Downstream Endpoints</code></pre>
+          <h4>BDF Addressing (Bus:Device.Function)</h4>
+          <p>Every PCIe function is identified by a 16-bit address:</p>
+          <ul>
+            <li><strong>Bus</strong> (8 bits) — 0-255, assigned during enumeration</li>
+            <li><strong>Device</strong> (5 bits) — 0-31, physical slot on a bus</li>
+            <li><strong>Function</strong> (3 bits) — 0-7, functions within a device</li>
+          </ul>
+          <pre><code># BDF format example: 0000:03:00.0
+#   Domain: 0000
+#   Bus:    03
+#   Device: 00
+#   Function: 0
+
+# List all PCIe devices with BDF
+lspci
+
+# Show tree topology
+lspci -tv</code></pre>
+        `
+      },
+      {
+        title: '4. Configuration Space',
+        content: `
+          <p>Each PCIe function has a <strong>4 KB configuration space</strong> (vs 256 bytes for legacy PCI):</p>
+          <pre><code>Offset    Content
+──────────────────────────────────────
+0x00-0x3F   Standard Header (Type 0 or Type 1)
+              - Vendor ID, Device ID (0x00)
+              - Command, Status (0x04)
+              - Class Code (0x08)
+              - BAR0-BAR5 (0x10-0x27)
+              - Subsystem Vendor/Device ID (0x2C)
+              - Capabilities Pointer (0x34)
+
+0x40-0xFF   Legacy PCI Capabilities
+              - MSI, MSI-X, Power Management, PCIe Cap
+
+0x100-0xFFF Extended PCIe Capabilities
+              - AER, ACS, L1 PM Substates, PASID, etc.</code></pre>
+          <pre><code># Read full config space
+sudo lspci -vvv -s 03:00.0
+
+# Read specific register (Vendor ID at offset 0x00)
+sudo setpci -s 03:00.0 0x00.w
+
+# Read Device ID at offset 0x02
+sudo setpci -s 03:00.0 0x02.w
+
+# Read Command register
+sudo setpci -s 03:00.0 COMMAND
+
+# View config space via sysfs
+hexdump -C /sys/bus/pci/devices/0000:03:00.0/config | head -20</code></pre>
+        `
+      },
+      {
+        title: '5. Linux PCIe Subsystem',
+        content: `
+          <h4>Key Tools</h4>
+          <table style="width:100%; border-collapse:collapse; margin:1rem 0;">
+            <tr style="border-bottom:1px solid #30363d;">
+              <th style="text-align:left; padding:0.5rem;">Tool</th>
+              <th style="text-align:left; padding:0.5rem;">Purpose</th>
+            </tr>
+            <tr style="border-bottom:1px solid #30363d;">
+              <td style="padding:0.5rem;"><code>lspci</code></td>
+              <td style="padding:0.5rem;">List/inspect PCIe devices and capabilities</td>
+            </tr>
+            <tr style="border-bottom:1px solid #30363d;">
+              <td style="padding:0.5rem;"><code>setpci</code></td>
+              <td style="padding:0.5rem;">Read/write PCI config space registers</td>
+            </tr>
+            <tr style="border-bottom:1px solid #30363d;">
+              <td style="padding:0.5rem;"><code>lspci -tv</code></td>
+              <td style="padding:0.5rem;">Show PCIe topology as tree</td>
+            </tr>
+            <tr style="border-bottom:1px solid #30363d;">
+              <td style="padding:0.5rem;"><code>pcieport</code></td>
+              <td style="padding:0.5rem;">Kernel driver for Root Port services (AER, PME, HP)</td>
+            </tr>
+            <tr>
+              <td style="padding:0.5rem;"><code>/sys/bus/pci/</code></td>
+              <td style="padding:0.5rem;">sysfs interface for PCI device attributes</td>
+            </tr>
+          </table>
+          <pre><code># List all devices (verbose)
+lspci -vvv
+
+# Show only PCIe capabilities
+lspci -vvv -s 03:00.0 | grep -A 5 "Express"
+
+# Check link speed and width
+lspci -vvv -s 03:00.0 | grep -i "lnksta\\|lnkcap"
+
+# Show NUMA node for a device
+cat /sys/bus/pci/devices/0000:03:00.0/numa_node
+
+# Show driver binding
+ls -la /sys/bus/pci/devices/0000:03:00.0/driver
+
+# Rescan PCI bus
+echo 1 > /sys/bus/pci/rescan
+
+# Remove a device
+echo 1 > /sys/bus/pci/devices/0000:03:00.0/remove
+
+# Reset a device (Function Level Reset)
+echo 1 > /sys/bus/pci/devices/0000:03:00.0/reset</code></pre>
+        `
+      },
+      {
+        title: '6. PCIe AER (Advanced Error Reporting)',
+        content: `
+          <p><strong>AER</strong> is a PCIe Extended Capability that provides detailed error reporting and logging. It classifies errors into three severity levels:</p>
+          <h4>Correctable Errors</h4>
+          <p>Hardware automatically recovers; no data loss but may indicate degradation:</p>
+          <ul>
+            <li>Receiver Error</li>
+            <li>Bad TLP / Bad DLLP</li>
+            <li>Replay Timer Timeout</li>
+            <li>Replay Num Rollover</li>
+            <li>Advisory Non-Fatal Error</li>
+          </ul>
+          <h4>Uncorrectable Non-Fatal Errors</h4>
+          <p>Transaction fails but link remains operational:</p>
+          <ul>
+            <li>Completion Timeout</li>
+            <li>Completer Abort</li>
+            <li>Unexpected Completion</li>
+            <li>Unsupported Request</li>
+            <li>Poisoned TLP</li>
+          </ul>
+          <h4>Uncorrectable Fatal Errors</h4>
+          <p>Link is unreliable; device reset typically required:</p>
+          <ul>
+            <li>Data Link Protocol Error</li>
+            <li>Surprise Down</li>
+            <li>Malformed TLP</li>
+            <li>Flow Control Protocol Error</li>
+            <li>ECRC Error</li>
+          </ul>
+          <pre><code># Check if AER is supported on a device
+lspci -vvv -s 03:00.0 | grep "Advanced Error Reporting"
+
+# View AER status via sysfs
+cat /sys/bus/pci/devices/0000:03:00.0/aer_dev_correctable
+cat /sys/bus/pci/devices/0000:03:00.0/aer_dev_fatal
+cat /sys/bus/pci/devices/0000:03:00.0/aer_dev_nonfatal
+
+# Check kernel AER support
+dmesg | grep -i aer
+
+# Verify AER kernel config
+grep CONFIG_PCIEAER /boot/config-$(uname -r)
+
+# Kernel tracepoint for real-time AER monitoring
+cat /sys/kernel/debug/tracing/events/ras/aer_event/format</code></pre>
+        `
+      },
+      {
+        title: '7. Real-Time AER Monitoring with eBPF',
+        content: `
+          <p>Traditional AER monitoring relies on polling dmesg or using rasdaemon. Our eBPF-based tool provides <strong>event-driven, zero-overhead</strong> monitoring:</p>
+          <pre><code># Install dependencies
+sudo apt install python3-bpfcc bpfcc-tools bpftrace
+
+# Quick monitoring with bpftrace
+sudo bpftrace -e 'tracepoint:ras:aer_event {
+  printf("%s | severity=%d | status=0x%x\\n",
+    str(args->dev_name), args->severity, args->status);
+}'
+
+# Full-featured monitoring (from our tools/)
+sudo python3 tools/pcie-aer-monitor/pcie_aer_monitor.py
+
+# Filter only Fatal errors
+sudo python3 tools/pcie-aer-monitor/pcie_aer_monitor.py --severity fatal
+
+# JSON output for log pipelines
+sudo python3 tools/pcie-aer-monitor/pcie_aer_monitor.py --json --summary</code></pre>
+          <h4>Data Flow: Hardware → Kernel → eBPF → Userspace</h4>
+          <pre><code>PCIe Device (error detected)
+    ↓ sets AER Status Register
+Root Port (MSI/MSI-X interrupt)
+    ↓
+Kernel AER Driver (reads registers, determines severity)
+    ↓ trace_aer_event()
+ras:aer_event tracepoint
+    ↓
+eBPF program (filter + perf_submit)
+    ↓ perf buffer
+Userspace (decode → output/alert)</code></pre>
+          <h4>eBPF vs Traditional Approaches</h4>
+          <table style="width:100%; border-collapse:collapse; margin:1rem 0;">
+            <tr style="border-bottom:1px solid #30363d;">
+              <th style="text-align:left; padding:0.5rem;">Method</th>
+              <th style="text-align:left; padding:0.5rem;">Mechanism</th>
+              <th style="text-align:left; padding:0.5rem;">Latency</th>
+              <th style="text-align:left; padding:0.5rem;">CPU Overhead</th>
+            </tr>
+            <tr style="border-bottom:1px solid #30363d;">
+              <td style="padding:0.5rem;">dmesg polling</td>
+              <td style="padding:0.5rem;">Periodic grep</td>
+              <td style="padding:0.5rem;">Seconds</td>
+              <td style="padding:0.5rem;">Wastes CPU cycles</td>
+            </tr>
+            <tr style="border-bottom:1px solid #30363d;">
+              <td style="padding:0.5rem;">rasdaemon</td>
+              <td style="padding:0.5rem;">Netlink + SQLite</td>
+              <td style="padding:0.5rem;">~ms</td>
+              <td style="padding:0.5rem;">Low</td>
+            </tr>
+            <tr>
+              <td style="padding:0.5rem;">eBPF (our tool)</td>
+              <td style="padding:0.5rem;">Tracepoint + perf buffer</td>
+              <td style="padding:0.5rem;">~us</td>
+              <td style="padding:0.5rem;">Near-zero (event-driven)</td>
+            </tr>
+          </table>
+          <p><strong>References:</strong></p>
+          <ul>
+            <li><a href="https://docs.kernel.org/PCI/pcieaer-howto.html" target="_blank">Kernel AER HOWTO</a></li>
+            <li><a href="https://pcisig.com/" target="_blank">PCI-SIG</a> — PCIe specification body</li>
+            <li><a href="https://docs.kernel.org/PCI/index.html" target="_blank">Linux PCI Subsystem Docs</a></li>
+          </ul>
+        `
+      }
+    ]
   }
 ];
