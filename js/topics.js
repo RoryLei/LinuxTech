@@ -2035,5 +2035,402 @@ sudo udevadm trigger</code></pre>
         `
       }
     ]
+  },
+  {
+    id: 'ethernet',
+    icon: '🔀',
+    title: 'Ethernet',
+    description: 'Understand Ethernet fundamentals, frame structure, Linux NIC management, and driver architecture',
+    sections: [
+      {
+        title: '1. Ethernet Fundamentals',
+        content: `
+          <p><strong>Ethernet</strong> (IEEE 802.3) is the dominant wired LAN technology, operating at Layer 1 (Physical) and Layer 2 (Data Link) of the OSI model.</p>
+          <h4>Speed Standards</h4>
+          <table style="width:100%; border-collapse:collapse; margin:1rem 0;">
+            <tr style="border-bottom:1px solid #30363d;">
+              <th style="text-align:left; padding:0.5rem;">Standard</th>
+              <th style="text-align:left; padding:0.5rem;">Speed</th>
+              <th style="text-align:left; padding:0.5rem;">Medium</th>
+              <th style="text-align:left; padding:0.5rem;">Max Distance</th>
+            </tr>
+            <tr style="border-bottom:1px solid #30363d;">
+              <td style="padding:0.5rem;">10BASE-T</td><td style="padding:0.5rem;">10 Mbps</td><td style="padding:0.5rem;">Cat3 UTP</td><td style="padding:0.5rem;">100m</td>
+            </tr>
+            <tr style="border-bottom:1px solid #30363d;">
+              <td style="padding:0.5rem;">100BASE-TX</td><td style="padding:0.5rem;">100 Mbps</td><td style="padding:0.5rem;">Cat5 UTP</td><td style="padding:0.5rem;">100m</td>
+            </tr>
+            <tr style="border-bottom:1px solid #30363d;">
+              <td style="padding:0.5rem;">1000BASE-T</td><td style="padding:0.5rem;">1 Gbps</td><td style="padding:0.5rem;">Cat5e/6 UTP</td><td style="padding:0.5rem;">100m</td>
+            </tr>
+            <tr style="border-bottom:1px solid #30363d;">
+              <td style="padding:0.5rem;">10GBASE-T</td><td style="padding:0.5rem;">10 Gbps</td><td style="padding:0.5rem;">Cat6a UTP</td><td style="padding:0.5rem;">100m</td>
+            </tr>
+            <tr style="border-bottom:1px solid #30363d;">
+              <td style="padding:0.5rem;">25GBASE-SR</td><td style="padding:0.5rem;">25 Gbps</td><td style="padding:0.5rem;">MMF (SFP28)</td><td style="padding:0.5rem;">100m</td>
+            </tr>
+            <tr style="border-bottom:1px solid #30363d;">
+              <td style="padding:0.5rem;">100GBASE-SR4</td><td style="padding:0.5rem;">100 Gbps</td><td style="padding:0.5rem;">MMF (QSFP28)</td><td style="padding:0.5rem;">100m</td>
+            </tr>
+            <tr>
+              <td style="padding:0.5rem;">400GBASE-SR8</td><td style="padding:0.5rem;">400 Gbps</td><td style="padding:0.5rem;">MMF (OSFP/QSFP-DD)</td><td style="padding:0.5rem;">100m</td>
+            </tr>
+          </table>
+          <h4>MAC Address</h4>
+          <ul>
+            <li>48-bit (6 bytes) hardware address, e.g., <code>aa:bb:cc:dd:ee:ff</code></li>
+            <li>First 3 bytes = OUI (Organizationally Unique Identifier / vendor)</li>
+            <li>Last 3 bytes = device-specific (assigned by manufacturer)</li>
+            <li><code>ff:ff:ff:ff:ff:ff</code> = broadcast address</li>
+            <li>Bit 0 of first byte: 0=unicast, 1=multicast</li>
+            <li>Bit 1 of first byte: 0=globally unique, 1=locally administered</li>
+          </ul>
+        `
+      },
+      {
+        title: '2. Ethernet Frame Structure',
+        content: `
+          <pre><code>┌──────────┬──────────┬──────────┬────────────┬─────────────────┬─────┐
+│ Preamble │   SFD    │  Dest    │   Source   │  Type/Length    │     │
+│ (7 bytes)│ (1 byte) │  MAC     │   MAC      │  (2 bytes)      │     │
+│ 10101010 │ 10101011 │ (6 bytes)│  (6 bytes) │  >1536=EtherType│     │
+├──────────┴──────────┴──────────┴────────────┴─────────────────┤     │
+│                                                                │     │
+│                        Payload                                 │ FCS │
+│                      (46-1500 bytes)                           │(4B) │
+│                                                                │     │
+└────────────────────────────────────────────────────────────────┴─────┘
+
+Total frame: 64-1518 bytes (without preamble/SFD)
+Jumbo frames: up to 9000 bytes payload (MTU 9000)</code></pre>
+          <h4>Common EtherType Values</h4>
+          <table style="width:100%; border-collapse:collapse; margin:1rem 0;">
+            <tr style="border-bottom:1px solid #30363d;">
+              <th style="text-align:left; padding:0.5rem;">EtherType</th>
+              <th style="text-align:left; padding:0.5rem;">Protocol</th>
+            </tr>
+            <tr style="border-bottom:1px solid #30363d;">
+              <td style="padding:0.5rem;"><code>0x0800</code></td><td style="padding:0.5rem;">IPv4</td>
+            </tr>
+            <tr style="border-bottom:1px solid #30363d;">
+              <td style="padding:0.5rem;"><code>0x0806</code></td><td style="padding:0.5rem;">ARP</td>
+            </tr>
+            <tr style="border-bottom:1px solid #30363d;">
+              <td style="padding:0.5rem;"><code>0x86DD</code></td><td style="padding:0.5rem;">IPv6</td>
+            </tr>
+            <tr style="border-bottom:1px solid #30363d;">
+              <td style="padding:0.5rem;"><code>0x8100</code></td><td style="padding:0.5rem;">802.1Q VLAN Tag</td>
+            </tr>
+            <tr>
+              <td style="padding:0.5rem;"><code>0x8847</code></td><td style="padding:0.5rem;">MPLS Unicast</td>
+            </tr>
+          </table>
+          <h4>VLAN Tagging (802.1Q)</h4>
+          <pre><code># 4-byte VLAN tag inserted between Source MAC and EtherType:
+# TPID (0x8100) | Priority (3-bit) | DEI (1-bit) | VLAN ID (12-bit)
+# Supports up to 4094 VLANs (0 and 4095 reserved)
+
+# Create a VLAN interface on Linux
+ip link add link eth0 name eth0.100 type vlan id 100
+ip addr add 192.168.100.1/24 dev eth0.100
+ip link set eth0.100 up</code></pre>
+        `
+      },
+      {
+        title: '3. Linux NIC Management with ethtool',
+        content: `
+          <p><code>ethtool</code> queries and controls NIC hardware settings that <code>ip link</code> cannot reach:</p>
+          <pre><code># Show NIC settings (speed, duplex, link status)
+ethtool eth0
+
+# Show driver/firmware info
+ethtool -i eth0
+# driver: igc
+# version: 6.8.0
+# firmware-version: 1.67.0
+
+# Show hardware statistics
+ethtool -S eth0 | head -20
+
+# Show ring buffer sizes
+ethtool -g eth0
+
+# Set ring buffer size (increase for high-throughput)
+sudo ethtool -G eth0 rx 4096 tx 4096
+
+# Show offload features
+ethtool -k eth0
+
+# Enable/disable offloads
+sudo ethtool -K eth0 tso on gro on rx-checksumming on
+
+# Force speed and duplex (disable auto-negotiation)
+sudo ethtool -s eth0 speed 1000 duplex full autoneg off
+
+# Show pause frame settings
+ethtool -a eth0
+
+# Run NIC self-test
+sudo ethtool -t eth0 online
+
+# Flash NIC firmware
+sudo ethtool --flash eth0 firmware.bin
+
+# Show transceiver (SFP/QSFP) info
+ethtool -m eth0</code></pre>
+        `
+      },
+      {
+        title: '4. Network Interface Configuration',
+        content: `
+          <h4>ip link / ip addr Commands</h4>
+          <pre><code># Show all interfaces
+ip link show
+
+# Show interface details with statistics
+ip -s link show eth0
+
+# Bring interface up/down
+sudo ip link set eth0 up
+sudo ip link set eth0 down
+
+# Set MTU (enable jumbo frames)
+sudo ip link set eth0 mtu 9000
+
+# Change MAC address
+sudo ip link set eth0 down
+sudo ip link set eth0 address aa:bb:cc:dd:ee:ff
+sudo ip link set eth0 up
+
+# Add IP address
+sudo ip addr add 192.168.1.10/24 dev eth0
+
+# Show routing table
+ip route show</code></pre>
+          <h4>Bonding / Link Aggregation (802.3ad LACP)</h4>
+          <pre><code># Create bond interface
+sudo ip link add bond0 type bond mode 802.3ad
+sudo ip link set eth0 master bond0
+sudo ip link set eth1 master bond0
+sudo ip link set bond0 up
+
+# Bond modes:
+# 0 = balance-rr (round-robin)
+# 1 = active-backup
+# 2 = balance-xor
+# 3 = broadcast
+# 4 = 802.3ad (LACP)
+# 5 = balance-tlb
+# 6 = balance-alb
+
+# View bond status
+cat /proc/net/bonding/bond0</code></pre>
+          <h4>Network Namespaces</h4>
+          <pre><code># Create a network namespace
+sudo ip netns add testns
+
+# Move interface into namespace
+sudo ip link set eth1 netns testns
+
+# Run command inside namespace
+sudo ip netns exec testns ip addr show
+
+# Connect namespaces with veth pair
+sudo ip link add veth0 type veth peer name veth1
+sudo ip link set veth1 netns testns</code></pre>
+        `
+      },
+      {
+        title: '5. Linux Network Stack & Driver Architecture',
+        content: `
+          <h4>Packet Reception Path</h4>
+          <pre><code>NIC Hardware (DMA to ring buffer)
+    ↓ IRQ
+Driver Interrupt Handler (top-half)
+    ↓ schedule NAPI poll
+NAPI Poll (softirq context)
+    ↓ napi_gro_receive()
+GRO (Generic Receive Offload) — aggregate small packets
+    ↓
+netif_receive_skb() — enters network stack
+    ↓
+Protocol Handlers (IPv4/IPv6/ARP)
+    ↓
+Transport Layer (TCP/UDP)
+    ↓
+Socket Buffer → Application</code></pre>
+          <h4>NAPI (New API)</h4>
+          <p>NAPI is the interrupt mitigation mechanism for high-speed NICs:</p>
+          <ul>
+            <li>First packet triggers hardware IRQ</li>
+            <li>Driver disables IRQ and schedules NAPI poll</li>
+            <li>Kernel polls for packets in softirq (no IRQ per packet)</li>
+            <li>When queue empties, re-enables IRQ</li>
+            <li>Prevents IRQ storms at high packet rates</li>
+          </ul>
+          <h4>Key Kernel Data Structures</h4>
+          <pre><code>struct net_device    — represents a network interface
+struct sk_buff       — socket buffer (holds one packet)
+struct napi_struct   — NAPI polling instance
+struct ethtool_ops   — ethtool callback operations
+struct net_device_ops — interface operations (open, stop, xmit)</code></pre>
+          <h4>NIC Offloads</h4>
+          <table style="width:100%; border-collapse:collapse; margin:1rem 0;">
+            <tr style="border-bottom:1px solid #30363d;">
+              <th style="text-align:left; padding:0.5rem;">Offload</th>
+              <th style="text-align:left; padding:0.5rem;">Description</th>
+            </tr>
+            <tr style="border-bottom:1px solid #30363d;">
+              <td style="padding:0.5rem;">TSO (TCP Segmentation Offload)</td>
+              <td style="padding:0.5rem;">NIC splits large TCP segments into MTU-sized packets</td>
+            </tr>
+            <tr style="border-bottom:1px solid #30363d;">
+              <td style="padding:0.5rem;">GRO (Generic Receive Offload)</td>
+              <td style="padding:0.5rem;">Kernel aggregates small packets into large buffers</td>
+            </tr>
+            <tr style="border-bottom:1px solid #30363d;">
+              <td style="padding:0.5rem;">RSS (Receive Side Scaling)</td>
+              <td style="padding:0.5rem;">Distribute RX across multiple queues/CPUs</td>
+            </tr>
+            <tr style="border-bottom:1px solid #30363d;">
+              <td style="padding:0.5rem;">XDP (eXpress Data Path)</td>
+              <td style="padding:0.5rem;">eBPF packet processing at driver level</td>
+            </tr>
+            <tr>
+              <td style="padding:0.5rem;">Checksum Offload</td>
+              <td style="padding:0.5rem;">NIC computes/verifies IP/TCP/UDP checksums</td>
+            </tr>
+          </table>
+        `
+      },
+      {
+        title: '6. Performance Tuning',
+        content: `
+          <h4>Ring Buffer Sizing</h4>
+          <pre><code># Show current/max ring buffer size
+ethtool -g eth0
+
+# Increase for high-throughput workloads
+sudo ethtool -G eth0 rx 4096 tx 4096</code></pre>
+          <h4>Interrupt Coalescing</h4>
+          <pre><code># Show coalescing settings
+ethtool -c eth0
+
+# Set adaptive coalescing
+sudo ethtool -C eth0 adaptive-rx on adaptive-tx on
+
+# Or set fixed values (microseconds)
+sudo ethtool -C eth0 rx-usecs 50 tx-usecs 50</code></pre>
+          <h4>Multi-Queue & CPU Affinity</h4>
+          <pre><code># Show RX/TX queue count
+ethtool -l eth0
+
+# Set number of queues
+sudo ethtool -L eth0 combined 8
+
+# View IRQ to CPU mapping
+cat /proc/interrupts | grep eth0
+
+# Set IRQ affinity (pin queue 0 to CPU 0)
+echo 1 > /proc/irq/123/smp_affinity
+
+# Use irqbalance for automatic distribution
+sudo systemctl enable irqbalance</code></pre>
+          <h4>Kernel Tuning (sysctl)</h4>
+          <pre><code># Increase socket buffer sizes
+sudo sysctl -w net.core.rmem_max=16777216
+sudo sysctl -w net.core.wmem_max=16777216
+sudo sysctl -w net.core.rmem_default=1048576
+
+# Increase backlog queue
+sudo sysctl -w net.core.netdev_max_backlog=5000
+
+# TCP window scaling
+sudo sysctl -w net.ipv4.tcp_window_scaling=1
+
+# Increase max connections
+sudo sysctl -w net.core.somaxconn=65535
+
+# Make persistent in /etc/sysctl.d/99-network.conf</code></pre>
+          <h4>XDP for Line-Rate Processing</h4>
+          <pre><code># Attach XDP program to NIC (native mode)
+sudo ip link set eth0 xdp obj xdp_prog.o sec xdp
+
+# Detach XDP program
+sudo ip link set eth0 xdp off
+
+# Check XDP support
+ethtool -k eth0 | grep xdp</code></pre>
+        `
+      },
+      {
+        title: '7. Troubleshooting',
+        content: `
+          <h4>Common Diagnostic Commands</h4>
+          <pre><code># Check link status
+ethtool eth0 | grep -i "link detected"
+ip link show eth0
+
+# View error counters
+ethtool -S eth0 | grep -i "error\\|drop\\|miss\\|crc"
+ip -s link show eth0
+
+# Check for packet drops
+cat /proc/net/softnet_stat
+# columns: total, dropped, time_squeeze, ...
+
+# Test connectivity
+ping -I eth0 192.168.1.1
+arping -I eth0 192.168.1.1
+
+# Capture packets
+sudo tcpdump -i eth0 -nn -c 100
+sudo tcpdump -i eth0 -w capture.pcap
+
+# Check cable/SFP diagnostics
+ethtool --phy-statistics eth0
+ethtool -m eth0  # module (SFP) info: temp, voltage, RX/TX power</code></pre>
+          <h4>Common Issues</h4>
+          <table style="width:100%; border-collapse:collapse; margin:1rem 0;">
+            <tr style="border-bottom:1px solid #30363d;">
+              <th style="text-align:left; padding:0.5rem;">Symptom</th>
+              <th style="text-align:left; padding:0.5rem;">Possible Cause</th>
+              <th style="text-align:left; padding:0.5rem;">Diagnosis</th>
+            </tr>
+            <tr style="border-bottom:1px solid #30363d;">
+              <td style="padding:0.5rem;">Link down</td>
+              <td style="padding:0.5rem;">Cable, SFP, speed mismatch</td>
+              <td style="padding:0.5rem;"><code>ethtool eth0</code>, check cable, try autoneg</td>
+            </tr>
+            <tr style="border-bottom:1px solid #30363d;">
+              <td style="padding:0.5rem;">CRC errors</td>
+              <td style="padding:0.5rem;">Bad cable, EMI, failing NIC</td>
+              <td style="padding:0.5rem;"><code>ethtool -S eth0 | grep crc</code></td>
+            </tr>
+            <tr style="border-bottom:1px solid #30363d;">
+              <td style="padding:0.5rem;">RX drops</td>
+              <td style="padding:0.5rem;">Ring buffer full, CPU saturated</td>
+              <td style="padding:0.5rem;">Increase ring size, check <code>softnet_stat</code></td>
+            </tr>
+            <tr style="border-bottom:1px solid #30363d;">
+              <td style="padding:0.5rem;">High latency</td>
+              <td style="padding:0.5rem;">Interrupt coalescing too aggressive</td>
+              <td style="padding:0.5rem;">Reduce <code>rx-usecs</code> or use adaptive</td>
+            </tr>
+            <tr>
+              <td style="padding:0.5rem;">Duplex mismatch</td>
+              <td style="padding:0.5rem;">One side forced, other auto-neg</td>
+              <td style="padding:0.5rem;"><code>ethtool eth0</code>, both should be autoneg</td>
+            </tr>
+          </table>
+          <p><strong>References:</strong></p>
+          <ul>
+            <li><a href="https://docs.kernel.org/networking/index.html" target="_blank">Linux Kernel Networking Documentation</a></li>
+            <li><a href="https://docs.kernel.org/networking/ethtool-netlink.html" target="_blank">ethtool Netlink Interface</a></li>
+            <li><a href="https://standards.ieee.org/standard/802_3-2022.html" target="_blank">IEEE 802.3 Standard</a></li>
+          </ul>
+        `
+      }
+    ]
   }
 ];
