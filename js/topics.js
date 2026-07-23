@@ -2432,5 +2432,391 @@ ethtool -m eth0  # module (SFP) info: temp, voltage, RX/TX power</code></pre>
         `
       }
     ]
+  },
+  {
+    id: 'sas',
+    icon: '💾',
+    title: 'SAS (Serial Attached SCSI)',
+    description: 'Learn SAS architecture, protocol layers, expander topology, and Linux SAS management',
+    sections: [
+      {
+        title: '1. What is SAS?',
+        content: `
+          <p><strong>SAS (Serial Attached SCSI)</strong> is a point-to-point serial protocol for connecting storage devices (HDDs, SSDs, tape drives) to servers. It evolved from parallel SCSI to provide higher speed, better scalability, and full-duplex communication.</p>
+          <h4>Key Characteristics</h4>
+          <ul>
+            <li><strong>Point-to-point serial links</strong> (not shared bus like parallel SCSI)</li>
+            <li><strong>Full-duplex</strong> — simultaneous transmit and receive</li>
+            <li><strong>Dual-port drives</strong> — two paths for high availability</li>
+            <li><strong>Expander-based topology</strong> — connect up to 65,535 devices</li>
+            <li><strong>Backward compatible</strong> with SATA drives (via STP)</li>
+            <li><strong>Enterprise reliability</strong> — designed for 24/7 operation</li>
+          </ul>
+          <h4>SAS Generations</h4>
+          <table style="width:100%; border-collapse:collapse; margin:1rem 0;">
+            <tr style="border-bottom:1px solid #30363d;">
+              <th style="text-align:left; padding:0.5rem;">Generation</th>
+              <th style="text-align:left; padding:0.5rem;">Link Rate</th>
+              <th style="text-align:left; padding:0.5rem;">Throughput (per lane)</th>
+              <th style="text-align:left; padding:0.5rem;">Year</th>
+            </tr>
+            <tr style="border-bottom:1px solid #30363d;">
+              <td style="padding:0.5rem;">SAS-1</td><td style="padding:0.5rem;">3 Gbps</td><td style="padding:0.5rem;">300 MB/s</td><td style="padding:0.5rem;">2004</td>
+            </tr>
+            <tr style="border-bottom:1px solid #30363d;">
+              <td style="padding:0.5rem;">SAS-2</td><td style="padding:0.5rem;">6 Gbps</td><td style="padding:0.5rem;">600 MB/s</td><td style="padding:0.5rem;">2009</td>
+            </tr>
+            <tr style="border-bottom:1px solid #30363d;">
+              <td style="padding:0.5rem;">SAS-3</td><td style="padding:0.5rem;">12 Gbps</td><td style="padding:0.5rem;">1200 MB/s</td><td style="padding:0.5rem;">2013</td>
+            </tr>
+            <tr>
+              <td style="padding:0.5rem;">SAS-4</td><td style="padding:0.5rem;">22.5 Gbps</td><td style="padding:0.5rem;">2400 MB/s</td><td style="padding:0.5rem;">2017</td>
+            </tr>
+          </table>
+          <h4>SAS vs SATA vs NVMe</h4>
+          <table style="width:100%; border-collapse:collapse; margin:1rem 0;">
+            <tr style="border-bottom:1px solid #30363d;">
+              <th style="text-align:left; padding:0.5rem;">Feature</th>
+              <th style="text-align:left; padding:0.5rem;">SAS</th>
+              <th style="text-align:left; padding:0.5rem;">SATA</th>
+              <th style="text-align:left; padding:0.5rem;">NVMe</th>
+            </tr>
+            <tr style="border-bottom:1px solid #30363d;">
+              <td style="padding:0.5rem;">Interface</td><td style="padding:0.5rem;">SAS connector</td><td style="padding:0.5rem;">SATA connector</td><td style="padding:0.5rem;">PCIe (M.2/U.2)</td>
+            </tr>
+            <tr style="border-bottom:1px solid #30363d;">
+              <td style="padding:0.5rem;">Max Speed</td><td style="padding:0.5rem;">22.5 Gbps</td><td style="padding:0.5rem;">6 Gbps</td><td style="padding:0.5rem;">128 Gbps (Gen5 x4)</td>
+            </tr>
+            <tr style="border-bottom:1px solid #30363d;">
+              <td style="padding:0.5rem;">Full-duplex</td><td style="padding:0.5rem;">Yes</td><td style="padding:0.5rem;">No</td><td style="padding:0.5rem;">Yes (PCIe)</td>
+            </tr>
+            <tr style="border-bottom:1px solid #30363d;">
+              <td style="padding:0.5rem;">Dual-port</td><td style="padding:0.5rem;">Yes</td><td style="padding:0.5rem;">No</td><td style="padding:0.5rem;">Optional</td>
+            </tr>
+            <tr style="border-bottom:1px solid #30363d;">
+              <td style="padding:0.5rem;">Max Devices</td><td style="padding:0.5rem;">65,535</td><td style="padding:0.5rem;">1 per port</td><td style="padding:0.5rem;">Per PCIe lane</td>
+            </tr>
+            <tr>
+              <td style="padding:0.5rem;">Use Case</td><td style="padding:0.5rem;">Enterprise storage</td><td style="padding:0.5rem;">Consumer/Desktop</td><td style="padding:0.5rem;">High-perf storage</td>
+            </tr>
+          </table>
+        `
+      },
+      {
+        title: '2. Protocol Layers',
+        content: `
+          <p>SAS uses a layered architecture similar to networking:</p>
+          <pre><code>┌─────────────────────────────────────────┐
+│          Application Layer              │  SCSI command sets (SBC, SSC)
+├─────────────────────────────────────────┤
+│        Transport Protocols              │
+│  ┌─────────┐ ┌─────────┐ ┌─────────┐  │
+│  │   SSP   │ │   STP   │ │   SMP   │  │
+│  │(SCSI)   │ │(SATA)   │ │(Mgmt)   │  │
+│  └─────────┘ └─────────┘ └─────────┘  │
+├─────────────────────────────────────────┤
+│          Port Layer                     │  Wide ports, address assignment
+├─────────────────────────────────────────┤
+│          Link Layer                     │  Framing, flow control, primitives
+├─────────────────────────────────────────┤
+│          PHY Layer                      │  8b/10b encoding, OOB, speed neg.
+└─────────────────────────────────────────┘</code></pre>
+          <h4>Transport Protocols</h4>
+          <ul>
+            <li><strong>SSP (Serial SCSI Protocol)</strong> — Carries SCSI commands/data between initiators and SAS targets. Full-duplex, tagged command queuing (up to 65,535 outstanding commands)</li>
+            <li><strong>STP (Serial ATA Tunneled Protocol)</strong> — Tunnels SATA frames through SAS fabric. Allows SATA drives to connect to SAS infrastructure via expanders</li>
+            <li><strong>SMP (Serial Management Protocol)</strong> — Manages and discovers the SAS domain topology. Used to query expander routing tables, configure phys, and read error counters</li>
+          </ul>
+          <h4>SAS Addressing</h4>
+          <p>Every SAS device has a globally unique <strong>SAS Address</strong> (64-bit WWN — World Wide Name):</p>
+          <pre><code># Format: NAA-5 (Network Address Authority)
+# Example: 5000c5000ab12345
+# 5    = NAA type (IEEE registered)
+# 000c500 = vendor OUI (Seagate in this case)
+# 0ab12345 = vendor-assigned unique ID</code></pre>
+        `
+      },
+      {
+        title: '3. SAS Topology & Expanders',
+        content: `
+          <h4>Direct-Attach Topology</h4>
+          <pre><code>  HBA (Initiator)
+   │  │  │  │        ← 4 or 8 internal phys
+   │  │  │  │
+  Drive Drive Drive Drive</code></pre>
+          <h4>Expander Topology (Typical Server/JBOD)</h4>
+          <pre><code>   HBA ──── SAS Expander ──── 24x Drives (JBOD shelf)
+    │              │
+    │              └──── SAS Expander ──── 24x Drives
+    │
+    └──── Direct-attached drives</code></pre>
+          <h4>Dual-Path / High Availability</h4>
+          <pre><code>  HBA-A ────┐              ┌──── Drive (Port A)
+            Expander ──────┤
+  HBA-B ────┘              └──── Drive (Port B)
+
+  If HBA-A or one path fails, traffic routes through HBA-B</code></pre>
+          <h4>Expander Routing Types</h4>
+          <ul>
+            <li><strong>Direct routing</strong> — For devices directly attached to the expander</li>
+            <li><strong>Table routing</strong> — For devices behind other expanders (routing table entries)</li>
+            <li><strong>Subtractive routing</strong> — Default route to upstream port (one per expander)</li>
+          </ul>
+          <h4>Wide Ports</h4>
+          <p>Multiple phys can be aggregated into a <strong>wide port</strong> for higher bandwidth:</p>
+          <pre><code># Example: 4x 12Gbps phys = one x4 wide port = 4800 MB/s aggregate
+# HBA typically has x4 or x8 wide port to expander
+# Drives use narrow port (single phy)</code></pre>
+        `
+      },
+      {
+        title: '4. Linux SAS Subsystem',
+        content: `
+          <p>The Linux SAS stack consists of:</p>
+          <ul>
+            <li><strong>SCSI Core</strong> — Generic SCSI command layer (<code>drivers/scsi/</code>)</li>
+            <li><strong>libsas</strong> — SAS transport layer, domain discovery, expander management</li>
+            <li><strong>SAS LLDD</strong> — Low-Level Device Drivers (e.g., mpt3sas, hisi_sas, pm80xx)</li>
+            <li><strong>SAS Transport Class</strong> — Exports SAS-specific attributes to sysfs</li>
+          </ul>
+          <h4>Common SAS HBA Drivers</h4>
+          <table style="width:100%; border-collapse:collapse; margin:1rem 0;">
+            <tr style="border-bottom:1px solid #30363d;">
+              <th style="text-align:left; padding:0.5rem;">Driver</th>
+              <th style="text-align:left; padding:0.5rem;">Hardware</th>
+            </tr>
+            <tr style="border-bottom:1px solid #30363d;">
+              <td style="padding:0.5rem;"><code>mpt3sas</code></td>
+              <td style="padding:0.5rem;">Broadcom (LSI) SAS3008/3108/3408/3416/3508/3516</td>
+            </tr>
+            <tr style="border-bottom:1px solid #30363d;">
+              <td style="padding:0.5rem;"><code>megaraid_sas</code></td>
+              <td style="padding:0.5rem;">Broadcom MegaRAID (RAID mode)</td>
+            </tr>
+            <tr style="border-bottom:1px solid #30363d;">
+              <td style="padding:0.5rem;"><code>hisi_sas</code></td>
+              <td style="padding:0.5rem;">HiSilicon SAS controllers (ARM servers)</td>
+            </tr>
+            <tr style="border-bottom:1px solid #30363d;">
+              <td style="padding:0.5rem;"><code>pm80xx</code></td>
+              <td style="padding:0.5rem;">PMC-Sierra/Microchip Adaptec SAS</td>
+            </tr>
+            <tr>
+              <td style="padding:0.5rem;"><code>aic94xx</code></td>
+              <td style="padding:0.5rem;">Adaptec AIC-94xx SAS (legacy)</td>
+            </tr>
+          </table>
+          <h4>sysfs SAS Tree</h4>
+          <pre><code># SAS host adapters
+ls /sys/class/sas_host/
+
+# SAS phys (physical links)
+ls /sys/class/sas_phy/
+cat /sys/class/sas_phy/phy-0:0/negotiated_linkrate
+cat /sys/class/sas_phy/phy-0:0/maximum_linkrate
+cat /sys/class/sas_phy/phy-0:0/sas_address
+
+# SAS ports (collections of phys)
+ls /sys/class/sas_port/
+
+# SAS expanders
+ls /sys/class/sas_expander/
+cat /sys/class/sas_expander/expander-0:0/sas_address
+
+# SAS end devices (drives)
+ls /sys/class/sas_end_device/
+cat /sys/class/sas_end_device/end_device-0:0:0/sas_address
+
+# SCSI devices behind SAS
+ls /sys/class/scsi_device/</code></pre>
+        `
+      },
+      {
+        title: '5. SAS Management Tools',
+        content: `
+          <h4>lsscsi — List SCSI/SAS devices</h4>
+          <pre><code># List all SCSI devices
+lsscsi
+# [0:0:0:0]  disk    SEAGATE  ST1200MM0009     N003  /dev/sda
+# [0:0:1:0]  disk    SEAGATE  ST1200MM0009     N003  /dev/sdb
+# [0:0:2:0]  enclosu AHCI     SGPIO            0001  -
+
+# Verbose (show transport info)
+lsscsi -t
+# [0:0:0:0]  disk    sas:0x5000c5000ab12345  /dev/sda
+
+# Show SAS addresses
+lsscsi -w</code></pre>
+          <h4>sg_ses — SES (SCSI Enclosure Services)</h4>
+          <pre><code># Show enclosure status (drive slots, fans, PSUs, temps)
+sudo sg_ses /dev/sg3
+
+# Show individual element status
+sudo sg_ses --page=2 /dev/sg3
+
+# Control enclosure (blink drive LED for identification)
+sudo sg_ses --index=0 --set=ident /dev/sg3
+
+# Stop blinking
+sudo sg_ses --index=0 --clear=ident /dev/sg3</code></pre>
+          <h4>smp_utils — SMP (Serial Management Protocol)</h4>
+          <pre><code># Install
+sudo apt install smp-utils    # Debian/Ubuntu
+sudo dnf install smp_utils    # RHEL/Fedora
+
+# Discover expander topology
+sudo smp_discover /dev/bsg/expander-0:0
+
+# Show expander PHY info
+sudo smp_rep_general /dev/bsg/expander-0:0
+
+# Read phy error counters
+sudo smp_rep_phy_err_log /dev/bsg/expander-0:0 --phy=0
+
+# Reset phy error counters
+sudo smp_phy_control --phy=0 --op=clr /dev/bsg/expander-0:0</code></pre>
+          <h4>smartctl — Drive Health (SMART)</h4>
+          <pre><code># Show SMART info for SAS drive
+sudo smartctl -a /dev/sda
+
+# Run short self-test
+sudo smartctl -t short /dev/sda
+
+# Check SAS-specific error logs
+sudo smartctl -l error /dev/sda
+sudo smartctl -l sasphy /dev/sda    # SAS phy error counters</code></pre>
+        `
+      },
+      {
+        title: '6. SAS Error Handling & Monitoring',
+        content: `
+          <h4>Common SAS Errors</h4>
+          <table style="width:100%; border-collapse:collapse; margin:1rem 0;">
+            <tr style="border-bottom:1px solid #30363d;">
+              <th style="text-align:left; padding:0.5rem;">Error Type</th>
+              <th style="text-align:left; padding:0.5rem;">Cause</th>
+              <th style="text-align:left; padding:0.5rem;">Impact</th>
+            </tr>
+            <tr style="border-bottom:1px solid #30363d;">
+              <td style="padding:0.5rem;">Invalid DWord</td>
+              <td style="padding:0.5rem;">Signal integrity, bad cable</td>
+              <td style="padding:0.5rem;">Retransmit at link layer</td>
+            </tr>
+            <tr style="border-bottom:1px solid #30363d;">
+              <td style="padding:0.5rem;">Running Disparity Error</td>
+              <td style="padding:0.5rem;">Encoding error, clock drift</td>
+              <td style="padding:0.5rem;">Frame corruption</td>
+            </tr>
+            <tr style="border-bottom:1px solid #30363d;">
+              <td style="padding:0.5rem;">Loss of DWord Sync</td>
+              <td style="padding:0.5rem;">Severe signal degradation</td>
+              <td style="padding:0.5rem;">Link reset required</td>
+            </tr>
+            <tr style="border-bottom:1px solid #30363d;">
+              <td style="padding:0.5rem;">Phy Reset Problem</td>
+              <td style="padding:0.5rem;">OOB failure, incompatible speed</td>
+              <td style="padding:0.5rem;">Device not discovered</td>
+            </tr>
+            <tr>
+              <td style="padding:0.5rem;">I/O Timeout</td>
+              <td style="padding:0.5rem;">Drive not responding, path failure</td>
+              <td style="padding:0.5rem;">I/O error, possible failover</td>
+            </tr>
+          </table>
+          <h4>Monitoring SAS Errors</h4>
+          <pre><code># Check kernel log for SAS errors
+dmesg | grep -i "sas\\|mpt3sas\\|scsi"
+
+# View phy error counters via sysfs
+cat /sys/class/sas_phy/phy-0:0/invalid_dword_count
+cat /sys/class/sas_phy/phy-0:0/running_disparity_error_count
+cat /sys/class/sas_phy/phy-0:0/loss_of_dword_sync_count
+cat /sys/class/sas_phy/phy-0:0/phy_reset_problem_count
+
+# Script to monitor all phys
+for phy in /sys/class/sas_phy/phy-*; do
+  echo "$(basename $phy): inv=$(cat $phy/invalid_dword_count) disp=$(cat $phy/running_disparity_error_count) sync=$(cat $phy/loss_of_dword_sync_count) rst=$(cat $phy/phy_reset_problem_count)"
+done
+
+# SMART SAS phy log
+sudo smartctl -l sasphy /dev/sda
+# Shows per-phy error counters from the drive side</code></pre>
+          <h4>Multipath I/O (dm-multipath)</h4>
+          <pre><code># Install multipath tools
+sudo apt install multipath-tools
+
+# Show multipath topology
+sudo multipath -ll
+# mpath0 (360000000000000001) dm-0 SEAGATE,ST1200MM
+# size=1.1T features='1 queue_if_no_path' hwhandler='0'
+# |-+- policy='round-robin 0' prio=1 status=active
+# | \`- 0:0:0:0 sda 8:0   active ready running
+# \`-+- policy='round-robin 0' prio=1 status=enabled
+#   \`- 1:0:0:0 sdb 8:16  active ready running
+
+# Force failover test
+sudo multipathd -k"fail path sda"</code></pre>
+        `
+      },
+      {
+        title: '7. Practical Operations',
+        content: `
+          <h4>Device Discovery & Hot-Swap</h4>
+          <pre><code># Trigger SAS domain rescan
+echo "- - -" > /sys/class/scsi_host/host0/scan
+
+# Remove a device (prepare for hot-swap)
+echo 1 > /sys/block/sda/device/delete
+
+# Rescan after inserting new drive
+echo "- - -" > /sys/class/scsi_host/host0/scan
+
+# Check if new device appeared
+lsscsi</code></pre>
+          <h4>Link Rate Management</h4>
+          <pre><code># View current and max link rate
+cat /sys/class/sas_phy/phy-0:0/negotiated_linkrate
+# 12.0 Gbit
+
+cat /sys/class/sas_phy/phy-0:0/maximum_linkrate_hw
+# 12.0 Gbit
+
+# Force link rate (useful for debugging)
+echo "6.0 Gbit" > /sys/class/sas_phy/phy-0:0/maximum_linkrate
+
+# Reset phy to renegotiate
+echo 1 > /sys/class/sas_phy/phy-0:0/link_reset</code></pre>
+          <h4>Performance Testing</h4>
+          <pre><code># Sequential read benchmark (SAS drive)
+sudo fio --name=seq-read --rw=read --bs=1M --size=1G \\
+  --numjobs=1 --ioengine=libaio --direct=1 \\
+  --filename=/dev/sda --runtime=30
+
+# Random read IOPS (4K)
+sudo fio --name=rand-read --rw=randread --bs=4k --size=1G \\
+  --numjobs=4 --ioengine=libaio --direct=1 --iodepth=32 \\
+  --filename=/dev/sda --runtime=30
+
+# Test with dd (simple sequential)
+sudo dd if=/dev/sda of=/dev/null bs=1M count=1024 iflag=direct</code></pre>
+          <h4>Firmware Update</h4>
+          <pre><code># Download firmware for SAS drive
+sudo sg_write_buffer --mode=dmc_offs_defer \\
+  --bpw=65536 --in=firmware.bin /dev/sda
+
+# Activate firmware (causes drive reset)
+sudo sg_write_buffer --mode=activate_mc /dev/sda
+
+# Update HBA firmware (Broadcom mpt3sas example)
+sudo sas3flash -f HBA_FW.bin</code></pre>
+          <p><strong>References:</strong></p>
+          <ul>
+            <li><a href="https://docs.kernel.org/scsi/libsas.html" target="_blank">Linux Kernel libsas Documentation</a></li>
+            <li><a href="https://www.t10.org/" target="_blank">T10 SCSI Standards Committee</a></li>
+            <li><a href="https://www.scsita.org/" target="_blank">SCSI Trade Association</a></li>
+          </ul>
+        `
+      }
+    ]
   }
 ];
