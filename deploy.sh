@@ -90,9 +90,12 @@ deploy_files() {
   if command -v rsync &> /dev/null; then
     rsync -av --delete \
       --exclude='.git' \
+      --exclude='.kiro' \
       --exclude='deploy.sh' \
       --exclude='.gitignore' \
       --exclude='README.md' \
+      --exclude='extract-topics.js' \
+      --exclude='__pycache__' \
       "${SCRIPT_DIR}/" "${WEB_ROOT}/"
   else
     # fallback: use cp
@@ -100,6 +103,7 @@ deploy_files() {
     cp -r "${SCRIPT_DIR}/index.html" "${WEB_ROOT}/"
     cp -r "${SCRIPT_DIR}/css" "${WEB_ROOT}/"
     cp -r "${SCRIPT_DIR}/js" "${WEB_ROOT}/"
+    cp -r "${SCRIPT_DIR}/topics" "${WEB_ROOT}/"
   fi
 
   # Set ownership and permissions
