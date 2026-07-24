@@ -18,4 +18,5 @@ const TOPICS = [
   TOPIC_GPIO,
   TOPIC_ETHERNET,
   TOPIC_SAS,
+  TOPIC_NVME,
 ];
