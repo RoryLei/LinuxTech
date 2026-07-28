@@ -28,8 +28,8 @@
 
 | Test Type | Count | Root? | CI-able? | Run Time |
 |-----------|-------|-------|----------|----------|
-| Unit | ~60 | No | Yes | < 5s |
-| Component | ~30 | No | Yes | < 10s |
+| Unit | ~80 | No | Yes | < 5s |
+| Component | ~40 | No | Yes | < 10s |
 | Integration | ~15 | Yes | VM only | < 60s |
 | E2E | ~5 | Yes | Manual/VM | < 120s |
 
@@ -353,11 +353,16 @@ class TestBaseCollector:
     def test_abstract_methods(self):
         """BaseCollector cannot be instantiated directly."""
         with pytest.raises(TypeError):
-            BaseCollector(config={})
+            BaseCollector(config={}, registry=None)
 
     def test_collector_lifecycle(self):
         """Collectors support start/stop lifecycle."""
-        collector = StorageCollector(config={"enabled": True, "devices": ["nvme*"]})
+        from tests.mock.mock_hal import MockDeviceRegistry
+        registry = MockDeviceRegistry(devices=["nvme0n1"])
+        collector = StorageCollector(
+            config={"enabled": True, "devices": ["nvme*"]},
+            registry=registry,
+        )
         # Mock the BPF object
         collector._bpf = MagicMock()
         collector.start()
@@ -369,7 +374,12 @@ class TestBaseCollector:
 class TestStorageCollector:
     def test_event_processing(self):
         """Process a synthetic NVMe latency event."""
-        collector = StorageCollector(config={"enabled": True, "devices": ["nvme*"]})
+        from tests.mock.mock_hal import MockDeviceRegistry
+        registry = MockDeviceRegistry(devices=["nvme0n1", "nvme1n1"])
+        collector = StorageCollector(
+            config={"enabled": True, "devices": ["nvme*"]},
+            registry=registry,
+        )
         mock_event = MagicMock()
         mock_event.device = b"nvme0n1"
         mock_event.latency_ns = 50000  # 50 μs
@@ -380,10 +390,27 @@ class TestStorageCollector:
 
     def test_device_filter(self):
         """Only matching devices are collected."""
-        collector = StorageCollector(config={"enabled": True, "devices": ["nvme0*"]})
+        from tests.mock.mock_hal import MockDeviceRegistry
+        registry = MockDeviceRegistry(devices=["nvme0n1", "nvme1n1", "sda"])
+        collector = StorageCollector(
+            config={"enabled": True, "devices": ["nvme0*"]},
+            registry=registry,
+        )
         assert collector.should_collect("nvme0n1") is True
         assert collector.should_collect("nvme1n1") is False
         assert collector.should_collect("sda") is False
+
+    def test_hal_discovery(self):
+        """Collector discovers devices through HAL registry."""
+        from tests.mock.mock_hal import MockDeviceRegistry
+        registry = MockDeviceRegistry(devices=["nvme0n1", "nvme1n1"])
+        collector = StorageCollector(
+            config={"enabled": True, "devices": ["nvme*"]},
+            registry=registry,
+        )
+        targets = collector.get_probe_targets()
+        assert len(targets) == 2
+        assert all(d.supports_latency_monitoring() for d in targets)
 
 
 class TestPCIeCollector:
@@ -569,6 +596,222 @@ class TestFullAgent:
 
 ## Mock Infrastructure
 
+### mock_hal.py — Mock HAL Backends for Testing Without Hardware
+
+```python
+"""Mock HAL implementations for unit and component testing."""
+from hal.base import HardwareDevice, DeviceRegistry
+from hal.storage.base import AbstractStorageDevice
+from hal.pcie.base import AbstractPCIeDevice
+from typing import Dict, List, Any
+
+
+class MockStorageDevice(AbstractStorageDevice):
+    """Mock storage device for testing."""
+
+    def __init__(self, dev_id="nvme0n1", dev_type="nvme", healthy=True):
+        self._id = dev_id
+        self._type = dev_type
+        self._healthy = healthy
+
+    def get_id(self) -> str:
+        return self._id
+
+    def get_type(self) -> str:
+        return self._type
+
+    def is_healthy(self) -> bool:
+        return self._healthy
+
+    def get_properties(self) -> Dict[str, Any]:
+        return {"model": "MockSSD", "serial": "MOCK001", "firmware_rev": "1.0"}
+
+    def get_capacity_bytes(self) -> int:
+        return 1_000_000_000_000  # 1TB
+
+    def get_smart_data(self) -> Dict[str, Any]:
+        return {
+            "critical_warning": 0 if self._healthy else 1,
+            "temperature": 35,
+            "percentage_used": 5,
+            "data_units_read": 1000000,
+            "data_units_written": 500000,
+        }
+
+    def get_io_stats(self) -> Dict[str, int]:
+        return {"read_ios": 1000, "write_ios": 500, "read_bytes": 4096000}
+
+    def get_firmware_version(self) -> str:
+        return "1.0"
+
+    def supports_latency_monitoring(self) -> bool:
+        return True
+
+
+class MockPCIeDevice(AbstractPCIeDevice):
+    """Mock PCIe device for testing."""
+
+    def __init__(self, bdf="0000:03:00.0", has_aer=True):
+        self._bdf = bdf
+        self._has_aer = has_aer
+
+    def get_id(self) -> str:
+        return self._bdf
+
+    def get_type(self) -> str:
+        return "pcie"
+
+    def is_healthy(self) -> bool:
+        return True
+
+    def get_properties(self) -> Dict[str, Any]:
+        return {"vendor": "0x8086", "device": "0xA0F0", "link_speed": "16 GT/s"}
+
+    def supports_aer(self) -> bool:
+        return self._has_aer
+
+    def get_link_speed(self) -> str:
+        return "16 GT/s"
+
+    def get_link_width(self) -> str:
+        return "x4"
+
+
+class MockDeviceRegistry(DeviceRegistry):
+    """Pre-populated device registry for testing."""
+
+    def __init__(self, devices=None, pcie_devices=None):
+        super().__init__()
+        if devices:
+            for dev_id in devices:
+                dev_type = "nvme" if "nvme" in dev_id else "sas" if "sd" not in dev_id else "sata"
+                self._devices[dev_id] = MockStorageDevice(dev_id, dev_type)
+        if pcie_devices:
+            for bdf in pcie_devices:
+                self._devices[bdf] = MockPCIeDevice(bdf)
+
+    def discover(self):
+        pass  # already populated
+```
+
+### test_hal.py — HAL Unit Tests
+
+```python
+"""Tests for Hardware Abstraction Layer."""
+import pytest
+from hal.base import DeviceRegistry
+from hal.storage.base import AbstractStorageDevice
+from tests.mock.mock_hal import (
+    MockStorageDevice, MockPCIeDevice, MockDeviceRegistry
+)
+
+
+class TestDeviceRegistry:
+    def test_discover_populates_devices(self):
+        """Registry discover() finds devices from backends."""
+        registry = MockDeviceRegistry(
+            devices=["nvme0n1", "nvme1n1"],
+            pcie_devices=["0000:03:00.0"]
+        )
+        storage = registry.get_devices_by_type("nvme")
+        pcie = registry.get_devices_by_type("pcie")
+        assert len(storage) == 2
+        assert len(pcie) == 1
+
+    def test_get_devices_by_type_filters(self):
+        """Only returns devices matching requested type."""
+        registry = MockDeviceRegistry(devices=["nvme0n1", "sda"])
+        nvme = registry.get_devices_by_type("nvme")
+        sata = registry.get_devices_by_type("sata")
+        assert len(nvme) == 1
+        assert len(sata) == 1
+
+    def test_empty_registry(self):
+        """Empty registry returns empty lists."""
+        registry = MockDeviceRegistry()
+        assert registry.get_devices_by_type("nvme") == []
+
+    def test_device_not_found_returns_empty(self):
+        """Non-existent type returns empty list."""
+        registry = MockDeviceRegistry(devices=["nvme0n1"])
+        assert registry.get_devices_by_type("gpu") == []
+
+
+class TestMockStorageDevice:
+    def test_healthy_device(self):
+        """Healthy device reports no critical warnings."""
+        dev = MockStorageDevice("nvme0n1", healthy=True)
+        assert dev.is_healthy() is True
+        assert dev.get_smart_data()["critical_warning"] == 0
+
+    def test_unhealthy_device(self):
+        """Unhealthy device reports critical warning."""
+        dev = MockStorageDevice("nvme0n1", healthy=False)
+        assert dev.is_healthy() is False
+        assert dev.get_smart_data()["critical_warning"] == 1
+
+    def test_device_properties(self):
+        """Device exposes expected properties."""
+        dev = MockStorageDevice("nvme0n1")
+        props = dev.get_properties()
+        assert "model" in props
+        assert "serial" in props
+        assert "firmware_rev" in props
+
+    def test_supports_latency(self):
+        """NVMe devices support latency monitoring."""
+        dev = MockStorageDevice("nvme0n1", dev_type="nvme")
+        assert dev.supports_latency_monitoring() is True
+
+
+class TestMockPCIeDevice:
+    def test_aer_support(self):
+        """Device reports AER capability."""
+        dev = MockPCIeDevice("0000:03:00.0", has_aer=True)
+        assert dev.supports_aer() is True
+
+    def test_no_aer_support(self):
+        """Device without AER reports correctly."""
+        dev = MockPCIeDevice("0000:03:00.0", has_aer=False)
+        assert dev.supports_aer() is False
+
+    def test_link_properties(self):
+        """PCIe device reports link speed and width."""
+        dev = MockPCIeDevice("0000:81:00.0")
+        assert dev.get_link_speed() == "16 GT/s"
+        assert dev.get_link_width() == "x4"
+
+
+class TestHALBackendSwap:
+    """Verify that swapping HAL backends doesn't break collectors."""
+
+    def test_nvme_to_sas_swap(self):
+        """Same collector interface works for NVMe and SAS."""
+        nvme_dev = MockStorageDevice("nvme0n1", dev_type="nvme")
+        sas_dev = MockStorageDevice("sda", dev_type="sas")
+
+        # Both implement the same interface
+        assert nvme_dev.get_smart_data() is not None
+        assert sas_dev.get_smart_data() is not None
+        assert nvme_dev.get_id() != sas_dev.get_id()
+        assert nvme_dev.get_type() != sas_dev.get_type()
+
+    def test_platform_profile_loading(self):
+        """Different platform configs produce different registries."""
+        dgx_registry = MockDeviceRegistry(
+            devices=["nvme0n1"],
+            pcie_devices=["0000:81:00.0", "0000:82:00.0"]
+        )
+        jbof_registry = MockDeviceRegistry(
+            devices=["nvme0n1", "nvme1n1", "nvme2n1", "nvme3n1"],
+            pcie_devices=["0000:81:00.0"]
+        )
+        # DGX: fewer storage, more PCIe (GPUs)
+        assert len(dgx_registry.get_devices_by_type("pcie")) == 2
+        # JBOF: more storage devices
+        assert len(jbof_registry.get_devices_by_type("nvme")) == 4
+```
+
 ### mock_events.py
 
 ```python
@@ -639,7 +882,10 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install -e ".[test]"
-      - run: pytest tests/unit/ -v --tb=short
+      - run: pytest tests/unit/ -v --tb=short --cov=hal --cov=collectors --cov=exporters --cov=config --cov-report=xml
+      - uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage.xml
 
   component-tests:
     runs-on: ubuntu-latest
@@ -649,7 +895,7 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install -e ".[test]"
-      - run: pytest tests/unit/ tests/component/ -v --tb=short
+      - run: pytest tests/unit/ tests/component/ -v --tb=short --cov=hal --cov=collectors --cov-report=term
 
   integration-tests:
     runs-on: ubuntu-latest
@@ -657,11 +903,15 @@ jobs:
     container:
       image: ubuntu:24.04
       options: --privileged
+      volumes:
+        - /sys/kernel/debug:/sys/kernel/debug
+        - /sys/kernel/tracing:/sys/kernel/tracing
     steps:
       - uses: actions/checkout@v4
       - run: |
           apt-get update
-          apt-get install -y python3-pip python3-bpfcc linux-headers-$(uname -r)
+          apt-get install -y python3-pip python3-bpfcc bpfcc-tools \
+            linux-tools-common kmod
       - run: pip install -e ".[test]"
       - run: pytest tests/integration/ -v --tb=short
 ```
@@ -672,6 +922,13 @@ jobs:
 
 | Module | Target Coverage | Priority |
 |--------|----------------|----------|
+| `hal/base.py` | >= 95% | P0 |
+| `hal/registry.py` | >= 90% | P0 |
+| `hal/storage/*.py` | >= 85% | P0 |
+| `hal/pcie/*.py` | >= 85% | P0 |
+| `hal/network/*.py` | >= 80% | P1 |
+| `hal/gpu/*.py` | >= 80% | P2 |
+| `hal/thermal/*.py` | >= 80% | P1 |
 | `collectors/pcie.py` | >= 90% | P0 |
 | `collectors/storage.py` | >= 90% | P0 |
 | `collectors/network.py` | >= 85% | P1 |
@@ -692,11 +949,14 @@ jobs:
 # Run all unit tests (fast, no root needed)
 pytest tests/unit/ -v
 
-# Run with coverage
-pytest tests/unit/ --cov=collectors --cov=exporters --cov-report=html
+# Run with coverage (includes HAL)
+pytest tests/unit/ --cov=hal --cov=collectors --cov=exporters --cov=config --cov-report=html
 
 # Run integration tests (requires root)
 sudo pytest tests/integration/ -v
+
+# Run HAL tests only
+pytest tests/unit/test_hal.py -v
 
 # Run specific test class
 pytest tests/unit/test_decoders.py::TestAERStatusDecoder -v
@@ -706,4 +966,7 @@ pytest -k "thermal" -v
 
 # Run with verbose output on failure
 pytest tests/ -v --tb=long -x  # stop on first failure
+
+# Verify HAL backend swap doesn't break anything
+pytest tests/unit/test_hal.py::TestHALBackendSwap -v
 ```
