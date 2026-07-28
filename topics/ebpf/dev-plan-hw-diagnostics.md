@@ -48,10 +48,92 @@ ebpf-hw-diag/
 │       │                         #   detect cross-NUMA allocations for latency-sensitive devices
 │       └── mce_events.bpf.c     # Attach to ras:mc_event; capture DIMM label, error type, count;
 │                                 #   track corrected ECC errors for predictive failure analysis
-│   └── memory/
-│       ├── dma_failures.bpf.c
-│       ├── numa_imbalance.bpf.c
-│       └── mce_events.bpf.c
+│
+│   ┌─────────────────────────────────────────────────────────────────────────────────────────┐
+│   │                    PROBE DIAGNOSTICS & JUDGMENT CRITERIA                                  │
+│   ├──────────────────┬──────────────────────────────┬────────────────────────────────────────┤
+│   │ Probe            │ Diagnosable Problems         │ Judgment Criteria (Alert Threshold)     │
+│   ├──────────────────┼──────────────────────────────┼────────────────────────────────────────┤
+│   │ nvme_latency     │ • SSD wear-out (NAND degrad) │ P99 > 5ms (normal: <100μs)            │
+│   │                  │ • Firmware bug (periodic      │ P999 > 50ms                            │
+│   │                  │   latency spikes)             │ Bimodal distribution (two peaks)       │
+│   │                  │ • Thermal throttling on SSD   │ Latency correlates with temp >70°C     │
+│   │                  │ • Controller hang/reset       │ Any I/O > 30s (NVMe timeout)           │
+│   │                  │ • Write amplification issue   │ Write latency >> read latency (10x)    │
+│   ├──────────────────┼──────────────────────────────┼────────────────────────────────────────┤
+│   │ nvme_queue_depth │ • Queue saturation (backlog)  │ In-flight I/Os > 80% of max QD        │
+│   │                  │ • Unbalanced multi-queue      │ One queue >90% while others <20%       │
+│   │                  │ • Insufficient I/O threads    │ Sustained QD=max with I/O waiters      │
+│   │                  │ • Device not draining         │ QD stuck at max for >5s                │
+│   ├──────────────────┼──────────────────────────────┼────────────────────────────────────────┤
+│   │ block_errors     │ • Failing drive (media error) │ Any EIO error (immediate alert)        │
+│   │                  │ • Path failure (multipath)    │ I/O timeout on one path (not others)   │
+│   │                  │ • Bad sector / unrecoverable  │ Repeated EIO on same LBA range         │
+│   │                  │   read error                  │                                        │
+│   │                  │ • Controller reset loop       │ >3 I/O timeouts within 60s             │
+│   ├──────────────────┼──────────────────────────────┼────────────────────────────────────────┤
+│   │ aer_monitor      │ • Degrading PCIe cable/conn   │ Correctable errors >10/hour (trending) │
+│   │                  │ • Failing NIC/GPU/NVMe link   │ Any Fatal error (immediate)            │
+│   │                  │ • Signal integrity issue      │ Bad TLP + Bad DLLP together            │
+│   │                  │ • Connector reseat needed     │ Errors clear after reseat              │
+│   │                  │ • Speed downgrade imminent    │ Correctable errors >100/hour           │
+│   │                  │ • Retimer failure             │ Errors on retimer receiver point       │
+│   ├──────────────────┼──────────────────────────────┼────────────────────────────────────────┤
+│   │ link_recovery    │ • Unstable PCIe link          │ >1 recovery/hour (link retrain)        │
+│   │                  │ • Surprise device removal     │ Any surprise-down event                │
+│   │                  │ • Bus reset storm             │ >3 resets within 5 minutes             │
+│   │                  │ • Hot-plug controller failure  │ Recovery fails (device disappears)     │
+│   ├──────────────────┼──────────────────────────────┼────────────────────────────────────────┤
+│   │ tcp_retrans      │ • Network fabric congestion   │ Retransmit rate >0.1% of total pkts   │
+│   │                  │ • Switch buffer overflow      │ Burst retransmits to same dst          │
+│   │                  │ • Cable/SFP degradation       │ Retransmits on single port only        │
+│   │                  │ • ECMP path imbalance         │ Retransmits concentrate on 1 path      │
+│   │                  │ • AI training stall (NCCL)    │ Retransmits on NCCL ports (18515,4420) │
+│   ├──────────────────┼──────────────────────────────┼────────────────────────────────────────┤
+│   │ rdma_errors      │ • RoCE fabric degradation     │ Any QP error (CQE status != success)   │
+│   │                  │ • PFC storm / deadlock        │ RDMA timeouts + zero retransmits       │
+│   │                  │ • NIC firmware bug            │ Specific vendor error codes            │
+│   │                  │ • GPU-Direct RDMA failure     │ Errors correlated with GPU device      │
+│   ├──────────────────┼──────────────────────────────┼────────────────────────────────────────┤
+│   │ fence_timeout    │ • GPU hang (compute kernel)   │ Fence not signaled >5s                 │
+│   │                  │ • GPU memory corruption       │ Repeated fence timeouts after reset    │
+│   │                  │ • Driver deadlock             │ All fences stalled across all contexts │
+│   │                  │ • Insufficient GPU memory     │ Fence timeout + OOM in dmesg          │
+│   │                  │ • PCIe link failure to GPU    │ Fence timeout + AER error on same BDF  │
+│   ├──────────────────┼──────────────────────────────┼────────────────────────────────────────┤
+│   │ iommu_fault      │ • GPU driver bug (bad DMA)    │ Any io_page_fault event               │
+│   │                  │ • Corrupted page table        │ Repeated faults on same address range  │
+│   │                  │ • Device out-of-bounds access  │ DMA addr outside allocated region     │
+│   │                  │ • Firmware/microcode issue    │ Faults after FW update                 │
+│   ├──────────────────┼──────────────────────────────┼────────────────────────────────────────┤
+│   │ throttle_events  │ • Cooling system failure      │ Critical trip (Tjmax) reached          │
+│   │                  │ • Fan failure / blocked airflow│ Throttle with fan RPM < expected      │
+│   │                  │ • Ambient temp too high        │ All zones trending up simultaneously  │
+│   │                  │ • Heatsink detachment         │ Single zone spike (others normal)      │
+│   │                  │ • TDP exceeded (power limit)  │ Throttle type=passive + freq drop      │
+│   ├──────────────────┼──────────────────────────────┼────────────────────────────────────────┤
+│   │ cpu_freq         │ • Power capping (RAPL limit)  │ All CPUs drop to min freq simultaneously│
+│   │                  │ • Thermal throttling          │ Freq drop correlates with temp rise    │
+│   │                  │ • C-state exit latency issue  │ Frequent transitions (>1000/s)         │
+│   │                  │ • Governor misconfiguration   │ Freq never reaches max under load      │
+│   ├──────────────────┼──────────────────────────────┼────────────────────────────────────────┤
+│   │ dma_failures     │ • IOMMU/SMMU misconfiguration │ Any dma_map_page failure               │
+│   │                  │ • Bounce buffer exhaustion    │ Failures under high I/O load only      │
+│   │                  │ • Address space exhaustion    │ Failures increase over uptime          │
+│   │                  │ • Kernel memory pressure      │ Correlates with low free memory        │
+│   ├──────────────────┼──────────────────────────────┼────────────────────────────────────────┤
+│   │ numa_imbalance   │ • Misconfigured NUMA affinity │ >20% allocations from remote node      │
+│   │                  │ • Wrong CPU-device binding    │ NVMe IRQ on different NUMA than memory │
+│   │                  │ • Memory bandwidth bottleneck │ Remote NUMA + high latency together    │
+│   │                  │ • VM/container misplacement   │ Process on node 0, device on node 1   │
+│   ├──────────────────┼──────────────────────────────┼────────────────────────────────────────┤
+│   │ mce_events       │ • DIMM failing (wear-out)    │ Corrected errors >10/day on same DIMM  │
+│   │                  │ • Memory row failure          │ Errors concentrate on same rank/bank   │
+│   │                  │ • Thermal memory errors       │ MCE correlates with temp >85°C         │
+│   │                  │ • DIMM seating issue          │ Errors on one channel only             │
+│   │                  │ • Imminent uncorrectable fail │ Corrected error rate doubling weekly   │
+│   └──────────────────┴──────────────────────────────┴────────────────────────────────────────┘
+│
 ├── hal/                          # Hardware Abstraction Layer
 │   ├── __init__.py              # Package init; exports DeviceRegistry and all base classes
 │   ├── base.py                   # HardwareDevice ABC: defines get_id(), get_type(), is_healthy(),
