@@ -10,109 +10,163 @@ with near-zero overhead.
 ```
 ebpf-hw-diag/
 ├── cmd/
-│   └── diagd/                    # Main daemon binary
-│       └── main.py
-├── probes/                       # eBPF programs (kernel-side)
+│   └── diagd/                    # Main daemon entry point
+│       └── main.py              # Agent bootstrap: parse args, load config, init HAL registry,
+│                                #   start collectors, open exporters, run event loop, handle signals
+├── probes/                       # eBPF programs (kernel-side, compiled to bytecode)
 │   ├── storage/
-│   │   ├── nvme_latency.bpf.c
-│   │   ├── nvme_queue_depth.bpf.c
-│   │   └── block_errors.bpf.c
+│   │   ├── nvme_latency.bpf.c  # Attach to block:block_rq_issue/complete; measure per-I/O latency;
+│   │   │                        #   populate latency histogram in BPF_HISTOGRAM map
+│   │   ├── nvme_queue_depth.bpf.c  # Track in-flight I/O count per device via atomic counter;
+│   │   │                            #   detect queue saturation (in-flight > threshold)
+│   │   └── block_errors.bpf.c  # Catch block layer errors (I/O timeout, EIO) via block:block_rq_error;
+│   │                            #   emit device + error code to perf buffer
 │   ├── pcie/
-│   │   ├── aer_monitor.bpf.c
-│   │   └── link_recovery.bpf.c
+│   │   ├── aer_monitor.bpf.c   # Attach to tracepoint:ras:aer_event; filter by severity;
+│   │   │                        #   decode status bits and forward to perf buffer with TLP header
+│   │   └── link_recovery.bpf.c # kprobe on pcie_do_recovery; capture BDF and recovery type;
+│   │                            #   detect link retraining and bus reset events
 │   ├── network/
-│   │   ├── tcp_retrans.bpf.c
-│   │   └── rdma_errors.bpf.c
+│   │   ├── tcp_retrans.bpf.c   # Attach to tcp:tcp_retransmit_skb; capture src/dst IP:port, state;
+│   │   │                        #   aggregate retransmit count per flow in BPF_HASH map
+│   │   └── rdma_errors.bpf.c   # Attach to rdma tracepoints (if available); capture QP errors,
+│   │                            #   CQE status codes; detect RoCE/IB fabric degradation
 │   ├── gpu/
-│   │   ├── fence_timeout.bpf.c
-│   │   └── iommu_fault.bpf.c
+│   │   ├── fence_timeout.bpf.c # Attach to dma_fence:dma_fence_init/signaled; track fence lifetime;
+│   │   │                        #   alert if fence not signaled within timeout (GPU hang detection)
+│   │   └── iommu_fault.bpf.c   # Attach to iommu:io_page_fault; capture faulting device + DMA addr;
+│   │                            #   detect invalid GPU-to-host memory access
 │   ├── thermal/
-│   │   ├── throttle_events.bpf.c
-│   │   └── cpu_freq.bpf.c
+│   │   ├── throttle_events.bpf.c  # Attach to thermal:thermal_zone_trip; capture zone name, temp,
+│   │   │                           #   trip type; emit event when thermal threshold crossed
+│   │   └── cpu_freq.bpf.c      # Attach to power:cpu_frequency; track per-CPU frequency transitions;
+│   │                            #   detect throttling (freq drop below baseline)
+│   └── memory/
+│       ├── dma_failures.bpf.c   # kretprobe on dma_map_page; detect return value == 0 (failure);
+│       │                         #   capture calling process and device for DMA mapping errors
+│       ├── numa_imbalance.bpf.c # Attach to kmem:mm_page_alloc; track allocation node vs expected;
+│       │                         #   detect cross-NUMA allocations for latency-sensitive devices
+│       └── mce_events.bpf.c     # Attach to ras:mc_event; capture DIMM label, error type, count;
+│                                 #   track corrected ECC errors for predictive failure analysis
 │   └── memory/
 │       ├── dma_failures.bpf.c
 │       ├── numa_imbalance.bpf.c
 │       └── mce_events.bpf.c
 ├── hal/                          # Hardware Abstraction Layer
-│   ├── __init__.py
-│   ├── base.py                   # Abstract HW interfaces (ABC)
-│   ├── registry.py              # HAL device registry & discovery
+│   ├── __init__.py              # Package init; exports DeviceRegistry and all base classes
+│   ├── base.py                   # HardwareDevice ABC: defines get_id(), get_type(), is_healthy(),
+│   │                             #   get_properties() interface that ALL devices must implement
+│   ├── registry.py              # DeviceRegistry: central catalog of all discovered HW;
+│   │                             #   supports dynamic discover(), hot-swap, type-based filtering
 │   ├── storage/
 │   │   ├── __init__.py
-│   │   ├── base.py              # AbstractStorageDevice
-│   │   ├── nvme.py              # NVMe implementation (via nvme-cli/sysfs)
-│   │   ├── sata.py              # SATA implementation (via smartctl/sysfs)
-│   │   └── sas.py               # SAS implementation (via sg_ses/sysfs)
+│   │   ├── base.py              # AbstractStorageDevice: extends HardwareDevice with
+│   │   │                         #   get_smart_data(), get_io_stats(), get_capacity_bytes(),
+│   │   │                         #   supports_latency_monitoring() — common storage interface
+│   │   ├── nvme.py              # NVMe implementation: uses nvme-cli JSON + /sys/class/nvme/
+│   │   │                         #   for SMART, identify-ctrl, namespace info, firmware version
+│   │   ├── sata.py              # SATA implementation: uses smartctl + /sys/block/sd*/
+│   │   │                         #   for SMART attributes, error counters, link speed
+│   │   └── sas.py               # SAS implementation: uses sg_ses + smartctl + sas_phy sysfs;
+│   │                             #   reads phy error counters, enclosure slot mapping, SMART
 │   ├── pcie/
 │   │   ├── __init__.py
-│   │   ├── base.py              # AbstractPCIeDevice
-│   │   ├── linux_sysfs.py       # Linux sysfs PCIe backend
-│   │   └── lspci.py             # lspci/setpci backend
+│   │   ├── base.py              # AbstractPCIeDevice: get_link_speed(), get_link_width(),
+│   │   │                         #   supports_aer(), get_bdf(), get_driver() interface
+│   │   ├── linux_sysfs.py       # Linux sysfs backend: reads /sys/bus/pci/devices/<BDF>/
+│   │   │                         #   for config, link status, AER counters, NUMA node
+│   │   └── lspci.py             # lspci/setpci backend: parses lspci -vvv output;
+│   │                             #   reads extended capabilities, AER registers via setpci
 │   ├── network/
 │   │   ├── __init__.py
-│   │   ├── base.py              # AbstractNIC
-│   │   ├── ethtool.py           # ethtool-based NIC abstraction
-│   │   └── rdma.py              # RDMA device abstraction
+│   │   ├── base.py              # AbstractNIC: get_link_state(), get_speed(), get_stats(),
+│   │   │                         #   get_ring_buffer_size(), supports_rdma() interface
+│   │   ├── ethtool.py           # ethtool backend: queries NIC via ethtool ioctls/netlink;
+│   │   │                         #   gets speed, duplex, offloads, error counters, driver info
+│   │   └── rdma.py              # RDMA device backend: enumerates /sys/class/infiniband/;
+│   │                             #   reads port state, link layer, GID table, error counters
 │   ├── gpu/
 │   │   ├── __init__.py
-│   │   ├── base.py              # AbstractAccelerator
-│   │   ├── nvidia.py            # NVIDIA GPU (nvidia-smi / sysfs)
-│   │   └── amd.py               # AMD GPU (rocm-smi / sysfs)
+│   │   ├── base.py              # AbstractAccelerator: get_temperature(), get_utilization(),
+│   │   │                         #   get_memory_usage(), get_pcie_bdf(), get_driver() interface
+│   │   ├── nvidia.py            # NVIDIA backend: parses nvidia-smi --query-gpu JSON output;
+│   │   │                         #   reads /sys/class/drm/card*/device/ for PCIe link info
+│   │   └── amd.py               # AMD backend: parses rocm-smi output + /sys/class/drm/;
+│   │                             #   reads hwmon for temp/power, amdgpu sysfs for utilization
 │   ├── thermal/
 │   │   ├── __init__.py
-│   │   ├── base.py              # AbstractThermalZone
-│   │   ├── hwmon.py             # Linux hwmon backend
-│   │   └── ipmi.py              # IPMI SDR thermal backend
+│   │   ├── base.py              # AbstractThermalZone: get_temperature(), get_trip_points(),
+│   │   │                         #   get_cooling_devices(), is_throttling() interface
+│   │   ├── hwmon.py             # Linux hwmon backend: reads /sys/class/hwmon/hwmon*/
+│   │   │                         #   for temperature, fan speed, voltage, power sensors
+│   │   └── ipmi.py              # IPMI SDR backend: uses ipmitool sdr to read BMC sensors;
+│   │                             #   provides out-of-band thermal data independent of OS
 │   └── platform/
 │       ├── __init__.py
-│       ├── base.py              # AbstractPlatform
-│       ├── x86_server.py        # x86 server platform
-│       └── arm_server.py        # ARM server platform (Ampere, etc.)
+│       ├── base.py              # AbstractPlatform: defines which HAL backends to load,
+│       │                         #   platform-specific quirks, expected device topology
+│       ├── x86_server.py        # x86 server: auto-detects Intel/AMD chipset, loads i2c-i801
+│       │                         #   or i2c-piix4, discovers PCIe topology via sysfs
+│       └── arm_server.py        # ARM server (Ampere/Graviton): handles platform-specific
+│                                 #   device tree paths, different hwmon layout, PCIe RC naming
 ├── collectors/                   # Userspace event handlers (Python)
-│   ├── __init__.py
-│   ├── base.py                   # Abstract collector class
-│   ├── storage.py
-│   ├── pcie.py
-│   ├── network.py
-│   ├── gpu.py
-│   ├── thermal.py
-│   └── memory.py
-├── exporters/                    # Output backends
-│   ├── __init__.py
-│   ├── prometheus.py             # Prometheus metrics exporter
-│   ├── json_log.py              # JSON log file / stdout
-│   └── alerter.py               # Alert rules engine
+│   ├── __init__.py              # Package init; exports all collector classes
+│   ├── base.py                   # BaseCollector ABC: defines start(), stop(), process_event(),
+│   │                             #   is_running property; accepts config + HAL registry
+│   ├── storage.py               # StorageCollector: processes block I/O events from eBPF probes;
+│   │                             #   computes latency histograms, percentiles; uses HAL for device info
+│   ├── pcie.py                  # PCIeCollector: processes AER events; decodes status bits to error
+│   │                             #   names; formats TLP headers; filters by severity
+│   ├── network.py               # NetworkCollector: aggregates TCP retransmit events per flow;
+│   │                             #   calculates rate; identifies NCCL/RDMA-related retransmissions
+│   ├── gpu.py                   # GPUCollector: tracks DMA fence lifetimes; detects GPU hang when
+│   │                             #   fence exceeds timeout; correlates with IOMMU faults
+│   ├── thermal.py               # ThermalCollector: processes thermal trip events; tracks throttle
+│   │                             #   duration; correlates CPU freq drops with I/O latency spikes
+│   └── memory.py               # MemoryCollector: processes DMA failures, ECC/MCE events;
+│                                 #   tracks NUMA imbalance; predicts DIMM failure from error trends
+├── exporters/                    # Output backends (where processed data goes)
+│   ├── __init__.py              # Package init; exports all exporter classes
+│   ├── prometheus.py             # PrometheusExporter: registers counters, histograms, gauges;
+│   │                             #   serves HTTP /metrics endpoint for Prometheus scraping
+│   ├── json_log.py              # JsonLogExporter: writes each event as single-line JSON to file;
+│   │                             #   supports log rotation by size; auto-adds timestamp field
+│   └── alerter.py               # AlertEngine: evaluates declarative rules against metric values;
+│                                 #   supports threshold + duration conditions; fires webhooks/syslog
 ├── config/
-│   ├── default.yaml             # Default configuration
-│   ├── alert_rules.yaml         # Alert thresholds
-│   └── platforms/               # Platform-specific HAL configs
-│       ├── generic_x86.yaml
-│       ├── nvidia_dgx.yaml      # NVIDIA DGX platform
-│       └── storage_jbof.yaml    # Storage JBOF platform
+│   ├── default.yaml             # Default agent configuration: collector enable/disable, thresholds,
+│   │                             #   exporter ports, log paths, poll intervals
+│   ├── alert_rules.yaml         # Alert rule definitions: condition expressions, severity levels,
+│   │                             #   duration requirements, notification backends
+│   └── platforms/               # Platform-specific HAL configuration profiles
+│       ├── generic_x86.yaml     # Generic x86 server: enables all standard backends
+│       ├── nvidia_dgx.yaml      # NVIDIA DGX: enables NVIDIA GPU HAL, RDMA, fewer storage
+│       └── storage_jbof.yaml    # Storage JBOF: many NVMe devices, no GPU, NVMe-oF networking
 ├── tests/
-│   ├── unit/
-│   │   ├── test_collectors.py
-│   │   ├── test_decoders.py
-│   │   ├── test_exporters.py
-│   │   ├── test_config.py
-│   │   └── test_hal.py          # HAL abstraction tests
-│   ├── integration/
-│   │   ├── test_probe_loading.py
-│   │   ├── test_event_pipeline.py
-│   │   └── test_prometheus.py
-│   ├── mock/
-│   │   ├── mock_events.py       # Synthetic eBPF events for testing
-│   │   ├── mock_tracepoints.py  # Fake tracepoint data
-│   │   └── mock_hal.py          # Mock HAL backends for testing
-│   └── conftest.py              # pytest fixtures
+│   ├── unit/                    # Fast tests, no root, no hardware (mock everything)
+│   │   ├── test_collectors.py   # Test event processing, device filtering, lifecycle
+│   │   ├── test_decoders.py     # Test pure decoding functions (AER bits, latency calc, IP format)
+│   │   ├── test_exporters.py    # Test Prometheus metrics, JSON serialization, alert evaluation
+│   │   ├── test_config.py       # Test config loading, env overrides, validation, defaults
+│   │   └── test_hal.py          # Test HAL registry, mock device behavior, backend swap
+│   ├── integration/             # Requires root + BCC; tests actual eBPF probe loading
+│   │   ├── test_probe_loading.py    # Verify each .bpf.c compiles and attaches in running kernel
+│   │   ├── test_event_pipeline.py   # Verify events flow probe → perf buffer → userspace
+│   │   └── test_prometheus.py       # Start agent, verify /metrics responds with expected metrics
+│   ├── mock/                    # Test doubles for isolated testing
+│   │   ├── mock_events.py       # Synthetic eBPF events (MockAEREvent, MockNVMeEvent, etc.)
+│   │   ├── mock_tracepoints.py  # Fake tracepoint data generators for event burst simulation
+│   │   └── mock_hal.py          # Mock HAL backends (MockStorageDevice, MockDeviceRegistry)
+│   │                             #   — enables full testing without any real hardware
+│   └── conftest.py              # pytest fixtures: temp dirs, mock registries, config factories
 ├── docs/
-│   ├── architecture.md
-│   ├── hal-design.md            # HAL design & extension guide
-│   └── deployment.md
-├── Makefile
-├── pyproject.toml
-├── requirements.txt
-└── README.md
+│   ├── architecture.md          # High-level system architecture diagram and data flow
+│   ├── hal-design.md            # HAL design guide: how to add new HW backend, interface contracts
+│   └── deployment.md            # Deployment guide: install deps, configure, systemd, Grafana
+├── Makefile                     # Build targets: install, test, lint, format, clean, docker
+├── pyproject.toml               # Python project metadata, dependencies, tool configs (pytest, black)
+├── requirements.txt             # Pinned dependencies: bcc, prometheus_client, pyyaml, etc.
+└── README.md                    # Project overview, quick start, feature list, architecture summary
 ```
 
 ---
