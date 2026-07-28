@@ -134,6 +134,78 @@ ebpf-hw-diag/
 │   │                  │ • Imminent uncorrectable fail │ Corrected error rate doubling weekly   │
 │   └──────────────────┴──────────────────────────────┴────────────────────────────────────────┘
 │
+│   ┌─────────────────────────────────────────────────────────────────────────────────────────┐
+│   │                    JUDGMENT CRITERIA REFERENCES                                           │
+│   ├──────────────────────────────────────────────────────────────────────────────────────────┤
+│   │                                                                                          │
+│   │ NVMe Latency Thresholds:                                                                │
+│   │   • NVMe spec: I/O timeout default = 30s (nvme_core.io_timeout kernel param)            │
+│   │     Source: https://docs.aws.amazon.com/ebs/latest/userguide/timeout-nvme-ebs-volumes   │
+│   │   • Normal NVMe 4K random read: 20-70 μs; degraded: >1ms; failing: >5ms                │
+│   │     Source: https://simplyblock.io/glossary/nvme-latency/                               │
+│   │   • vSAN storage: normal <1.5ms; warning 2-3ms (write cliff indicator)                  │
+│   │     Source: https://knowledge.broadcom.com/external/article?articleNumber=424485         │
+│   │                                                                                          │
+│   │ PCIe AER Error Rates:                                                                    │
+│   │   • PCIe Base Spec mandates BER ≤ 10⁻¹² per lane (1 error per 1 terabit)               │
+│   │     Source: https://www.asteralabs.com/impact-of-bit-errors-in-pci-express-links/        │
+│   │   • At 16 GT/s (Gen4), 10⁻¹² BER ≈ 1 correctable error per ~62 seconds per lane        │
+│   │   • Threshold: operational experience — steady correctable errors indicate signal        │
+│   │     degradation trending toward uncorrectable; any Fatal = immediate action              │
+│   │     Source: PCIe Base Spec 5.0, Section 6.2 (Error Handling)                            │
+│   │     Source: https://pcisig.com/specifications                                           │
+│   │                                                                                          │
+│   │ TCP Retransmission Rates:                                                                │
+│   │   • Normal: ~0.0%; Warning: 0.1-0.5%; Critical: >0.5%                                  │
+│   │     Source: https://knowledge.broadcom.com/external/article/424515 (vSAN thresholds)    │
+│   │   • General: <1% acceptable; >2% indicates network problem                              │
+│   │     Source: https://www.systutorials.com/too-many-tcp-segments-retransmited/             │
+│   │   • Research: ~50% of monitored networks show aggregate retransmit >1%                  │
+│   │     Source: https://www.researchgate.net/publication/51963432 (TCP retransmit study)     │
+│   │                                                                                          │
+│   │ GPU Fence Timeout:                                                                       │
+│   │   • Linux DRM subsystem: default job timeout varies by driver                           │
+│   │     - amdgpu: 10,000 ms (10s), configurable via amdgpu.lockup_timeout                  │
+│   │     - i915: 5,000 ms (5s) for preempt timeout                                          │
+│   │     Source: Linux kernel source drivers/gpu/drm/amd/amdgpu/amdgpu_job.c                │
+│   │     Source: Linux kernel source drivers/gpu/drm/i915/gt/intel_engine_types.h            │
+│   │   • Industry practice: 5s = suspected hang, 10s = confirmed hang + reset               │
+│   │                                                                                          │
+│   │ Thermal Throttling:                                                                      │
+│   │   • Linux thermal framework trip types: active, passive, hot, critical                  │
+│   │     - critical = Tjmax reached → orderly shutdown                                       │
+│   │     - hot = near Tjmax → aggressive throttle                                            │
+│   │     Source: https://docs.kernel.org/driver-api/thermal/sysfs-api.html                   │
+│   │   • Intel CPU Tjmax: typically 100°C; throttle begins at ~95-100°C                      │
+│   │     Source: Intel processor datasheets (Thermal Design Guide)                           │
+│   │   • NVIDIA GPU Tmax: typically 83-90°C before throttle                                  │
+│   │     Source: https://docs.nvidia.com/drive/archive/5.1.0.2L/nvvib_docs/                  │
+│   │                                                                                          │
+│   │ ECC/MCE Predictive Failure:                                                              │
+│   │   • IBM PFA threshold: correctable ECC logging limit (vendor-configurable)              │
+│   │     Source: https://www.ibm.com/support/pages/memory-correctable-error-logging-limit    │
+│   │   • Research: corrected errors are strong predictor of uncorrectable errors              │
+│   │     Source: https://arxiv.org/html/2312.02855v1 (Memory Failure Prediction, 2023)       │
+│   │   • Google study: DIMMs with corrected errors are 2-14x more likely to have UE          │
+│   │     Source: Schroeder et al., "DRAM Errors in the Wild", ACM SIGMETRICS 2009            │
+│   │   • Industry practice: >10 CE/day on same DIMM → schedule replacement                  │
+│   │                                                                                          │
+│   │ NUMA Imbalance:                                                                          │
+│   │   • Best practice: device IRQ affinity should match NUMA node of consuming process      │
+│   │     Source: https://docs.kernel.org/admin-guide/pm/cpufreq.html                         │
+│   │   • Cross-NUMA memory access penalty: ~40-100ns additional latency (2x local)           │
+│   │     Source: Intel Xeon Scalable Memory Architecture whitepaper                          │
+│   │   • >20% remote allocations = significant performance impact                            │
+│   │     Source: operational experience, confirmed by numastat monitoring                    │
+│   │                                                                                          │
+│   │ DMA Mapping Failures:                                                                    │
+│   │   • Any dma_map_page() returning 0/DMA_MAPPING_ERROR = immediate concern               │
+│   │     Source: https://docs.kernel.org/core-api/dma-api.html (DMA API Guide)               │
+│   │   • Common causes: IOMMU address space exhaustion, SWIOTLB buffer full                  │
+│   │     Source: Linux kernel Documentation/core-api/dma-api-howto.rst                       │
+│   │                                                                                          │
+│   └──────────────────────────────────────────────────────────────────────────────────────────┘
+│
 ├── hal/                          # Hardware Abstraction Layer
 │   ├── __init__.py              # Package init; exports DeviceRegistry and all base classes
 │   ├── base.py                   # HardwareDevice ABC: defines get_id(), get_type(), is_healthy(),
