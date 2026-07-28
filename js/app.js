@@ -7,6 +7,14 @@
 
   var mainEl = document.querySelector('main.container');
   var currentView = localStorage.getItem('linuxtech-view') || 'medium';
+  var currentSort = localStorage.getItem('linuxtech-sort') || 'default';
+
+  // Sort mode definitions
+  var SORT_MODES = [
+    { id: 'default',  label: 'Default Order' },
+    { id: 'alpha',    label: 'A → Z' },
+    { id: 'alpha-desc', label: 'Z → A' }
+  ];
 
   // View mode definitions
   var VIEW_MODES = [
@@ -19,15 +27,24 @@
 
   // --- Build the view toolbar ---
   function buildViewToolbar() {
-    var options = VIEW_MODES.map(function (mode) {
+    var viewOptions = VIEW_MODES.map(function (mode) {
       var selected = mode.id === currentView ? ' selected' : '';
       return '<option value="' + mode.id + '"' + selected + '>' + mode.label + '</option>';
     }).join('');
 
+    var sortOptions = SORT_MODES.map(function (mode) {
+      var selected = mode.id === currentSort ? ' selected' : '';
+      return '<option value="' + mode.id + '"' + selected + '>' + mode.label + '</option>';
+    }).join('');
+
     return '<div class="view-toolbar">' +
+      '<label class="view-toolbar__label" for="sort-select">Sort:</label>' +
+      '<select id="sort-select" class="view-toolbar__select" aria-label="Select sort order">' +
+        sortOptions +
+      '</select>' +
       '<label class="view-toolbar__label" for="view-select">View:</label>' +
       '<select id="view-select" class="view-toolbar__select" aria-label="Select view mode">' +
-        options +
+        viewOptions +
       '</select>' +
     '</div>';
   }
@@ -78,10 +95,21 @@
     '</a>';
   }
 
+  // --- Get sorted topics ---
+  function getSortedTopics() {
+    var sorted = TOPICS.slice();
+    if (currentSort === 'alpha') {
+      sorted.sort(function (a, b) { return a.title.localeCompare(b.title); });
+    } else if (currentSort === 'alpha-desc') {
+      sorted.sort(function (a, b) { return b.title.localeCompare(a.title); });
+    }
+    return sorted;
+  }
+
   // --- Render topic grid with current view mode ---
   function buildTopicGridHTML() {
     var gridClass = 'topics-grid topics-grid--' + currentView;
-    var cards = TOPICS.map(function (topic) {
+    var cards = getSortedTopics().map(function (topic) {
       return buildCard(topic, currentView);
     }).join('');
 
@@ -112,6 +140,13 @@
     router();
   }
 
+  // --- Handle sort mode change ---
+  function onSortChange(e) {
+    currentSort = e.target.value;
+    localStorage.setItem('linuxtech-sort', currentSort);
+    router();
+  }
+
   // --- Simple hash-based router ---
   function router() {
     var hash = window.location.hash.slice(1);
@@ -128,10 +163,14 @@
     // Default: show topic grid
     mainEl.innerHTML = buildTopicGridHTML();
 
-    // Attach event listener to the dropdown
+    // Attach event listeners to dropdowns
     var select = document.getElementById('view-select');
     if (select) {
       select.addEventListener('change', onViewChange);
+    }
+    var sortSelect = document.getElementById('sort-select');
+    if (sortSelect) {
+      sortSelect.addEventListener('change', onSortChange);
     }
   }
 
