@@ -33,6 +33,41 @@ ebpf-hw-diag/
 │       ├── dma_failures.bpf.c
 │       ├── numa_imbalance.bpf.c
 │       └── mce_events.bpf.c
+├── hal/                          # Hardware Abstraction Layer
+│   ├── __init__.py
+│   ├── base.py                   # Abstract HW interfaces (ABC)
+│   ├── registry.py              # HAL device registry & discovery
+│   ├── storage/
+│   │   ├── __init__.py
+│   │   ├── base.py              # AbstractStorageDevice
+│   │   ├── nvme.py              # NVMe implementation (via nvme-cli/sysfs)
+│   │   ├── sata.py              # SATA implementation (via smartctl/sysfs)
+│   │   └── sas.py               # SAS implementation (via sg_ses/sysfs)
+│   ├── pcie/
+│   │   ├── __init__.py
+│   │   ├── base.py              # AbstractPCIeDevice
+│   │   ├── linux_sysfs.py       # Linux sysfs PCIe backend
+│   │   └── lspci.py             # lspci/setpci backend
+│   ├── network/
+│   │   ├── __init__.py
+│   │   ├── base.py              # AbstractNIC
+│   │   ├── ethtool.py           # ethtool-based NIC abstraction
+│   │   └── rdma.py              # RDMA device abstraction
+│   ├── gpu/
+│   │   ├── __init__.py
+│   │   ├── base.py              # AbstractAccelerator
+│   │   ├── nvidia.py            # NVIDIA GPU (nvidia-smi / sysfs)
+│   │   └── amd.py               # AMD GPU (rocm-smi / sysfs)
+│   ├── thermal/
+│   │   ├── __init__.py
+│   │   ├── base.py              # AbstractThermalZone
+│   │   ├── hwmon.py             # Linux hwmon backend
+│   │   └── ipmi.py              # IPMI SDR thermal backend
+│   └── platform/
+│       ├── __init__.py
+│       ├── base.py              # AbstractPlatform
+│       ├── x86_server.py        # x86 server platform
+│       └── arm_server.py        # ARM server platform (Ampere, etc.)
 ├── collectors/                   # Userspace event handlers (Python)
 │   ├── __init__.py
 │   ├── base.py                   # Abstract collector class
@@ -49,29 +84,344 @@ ebpf-hw-diag/
 │   └── alerter.py               # Alert rules engine
 ├── config/
 │   ├── default.yaml             # Default configuration
-│   └── alert_rules.yaml         # Alert thresholds
+│   ├── alert_rules.yaml         # Alert thresholds
+│   └── platforms/               # Platform-specific HAL configs
+│       ├── generic_x86.yaml
+│       ├── nvidia_dgx.yaml      # NVIDIA DGX platform
+│       └── storage_jbof.yaml    # Storage JBOF platform
 ├── tests/
 │   ├── unit/
 │   │   ├── test_collectors.py
 │   │   ├── test_decoders.py
 │   │   ├── test_exporters.py
-│   │   └── test_config.py
+│   │   ├── test_config.py
+│   │   └── test_hal.py          # HAL abstraction tests
 │   ├── integration/
 │   │   ├── test_probe_loading.py
 │   │   ├── test_event_pipeline.py
 │   │   └── test_prometheus.py
 │   ├── mock/
 │   │   ├── mock_events.py       # Synthetic eBPF events for testing
-│   │   └── mock_tracepoints.py  # Fake tracepoint data
+│   │   ├── mock_tracepoints.py  # Fake tracepoint data
+│   │   └── mock_hal.py          # Mock HAL backends for testing
 │   └── conftest.py              # pytest fixtures
 ├── docs/
 │   ├── architecture.md
+│   ├── hal-design.md            # HAL design & extension guide
 │   └── deployment.md
 ├── Makefile
 ├── pyproject.toml
 ├── requirements.txt
 └── README.md
 ```
+
+---
+
+## Hardware Abstraction Layer (HAL) Design
+
+The HAL decouples diagnostic logic from specific hardware implementations,
+enabling hot-swap of backends without modifying collectors or probes.
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     Collectors                                │
+│  (storage.py, pcie.py, network.py, gpu.py, thermal.py)      │
+│                                                               │
+│  Collectors use HAL interfaces — never access hardware       │
+│  directly. This means:                                        │
+│  - Same collector code works on NVMe, SAS, or SATA          │
+│  - Same GPU collector works on NVIDIA or AMD                 │
+│  - Swap hardware = swap HAL backend config, not code         │
+└───────────────────────────────┬─────────────────────────────┘
+                                │ calls abstract interface
+                                ▼
+┌─────────────────────────────────────────────────────────────┐
+│                   HAL Interface Layer                         │
+│                                                               │
+│  ┌──────────────────┐  ┌──────────────────┐                 │
+│  │AbstractStorage    │  │AbstractPCIeDevice│  ...            │
+│  │  .get_devices()  │  │  .get_aer_status()│                │
+│  │  .get_smart()    │  │  .get_link_speed()│                │
+│  │  .get_latency()  │  │  .get_bdf()       │                │
+│  └────────┬─────────┘  └────────┬─────────┘                 │
+│           │                      │                            │
+└───────────┼──────────────────────┼────────────────────────────┘
+            │                      │
+     ┌──────┴──────┐       ┌──────┴──────┐
+     │             │       │             │
+┌────┴────┐ ┌─────┴───┐ ┌─┴───────┐ ┌───┴──────┐
+│NVMe HAL │ │SAS HAL  │ │sysfs HAL│ │lspci HAL │
+│(nvme-cli│ │(sg_ses, │ │(/sys/bus│ │(setpci)  │
+│ sysfs)  │ │ smp)    │ │ /pci/)  │ │          │
+└─────────┘ └─────────┘ └─────────┘ └──────────┘
+     │           │            │            │
+     ▼           ▼            ▼            ▼
+  Hardware    Hardware     Hardware     Hardware
+```
+
+### HAL Base Classes
+
+```python
+# hal/base.py
+from abc import ABC, abstractmethod
+from typing import List, Dict, Any
+
+
+class HardwareDevice(ABC):
+    """Base class for all HAL device representations."""
+
+    @abstractmethod
+    def get_id(self) -> str:
+        """Unique identifier (e.g., BDF, /dev path, serial number)."""
+        ...
+
+    @abstractmethod
+    def get_type(self) -> str:
+        """Device type string (e.g., 'nvme', 'sas', 'gpu')."""
+        ...
+
+    @abstractmethod
+    def is_healthy(self) -> bool:
+        """Quick health check."""
+        ...
+
+    @abstractmethod
+    def get_properties(self) -> Dict[str, Any]:
+        """Get device properties (model, firmware, serial, etc.)."""
+        ...
+
+
+class DeviceRegistry:
+    """Central registry for all discovered hardware devices."""
+
+    def __init__(self):
+        self._devices: Dict[str, HardwareDevice] = {}
+        self._backends: List = []
+
+    def discover(self) -> None:
+        """Run discovery on all registered backends."""
+        for backend in self._backends:
+            for device in backend.enumerate():
+                self._devices[device.get_id()] = device
+
+    def get_devices_by_type(self, device_type: str) -> List[HardwareDevice]:
+        """Get all devices of a given type."""
+        return [d for d in self._devices.values() if d.get_type() == device_type]
+
+    def register_backend(self, backend) -> None:
+        """Register a HAL backend for device discovery."""
+        self._backends.append(backend)
+```
+
+### HAL Storage Example
+
+```python
+# hal/storage/base.py
+from abc import abstractmethod
+from hal.base import HardwareDevice
+from typing import Dict, Optional
+
+
+class AbstractStorageDevice(HardwareDevice):
+    """Abstract storage device interface."""
+
+    @abstractmethod
+    def get_capacity_bytes(self) -> int:
+        ...
+
+    @abstractmethod
+    def get_smart_data(self) -> Dict[str, Any]:
+        """Return SMART/health data (temperature, wear, errors)."""
+        ...
+
+    @abstractmethod
+    def get_io_stats(self) -> Dict[str, int]:
+        """Current I/O statistics (reads, writes, latency)."""
+        ...
+
+    @abstractmethod
+    def get_firmware_version(self) -> str:
+        ...
+
+    @abstractmethod
+    def supports_latency_monitoring(self) -> bool:
+        """Whether this device supports eBPF latency tracing."""
+        ...
+
+
+# hal/storage/nvme.py
+import subprocess
+import json
+from hal.storage.base import AbstractStorageDevice
+
+
+class NVMeDevice(AbstractStorageDevice):
+    """NVMe device HAL implementation."""
+
+    def __init__(self, dev_path: str):
+        self._path = dev_path  # e.g., /dev/nvme0n1
+
+    def get_id(self) -> str:
+        return self._path
+
+    def get_type(self) -> str:
+        return "nvme"
+
+    def is_healthy(self) -> bool:
+        smart = self.get_smart_data()
+        return smart.get("critical_warning", 1) == 0
+
+    def get_smart_data(self) -> Dict[str, Any]:
+        result = subprocess.run(
+            ["nvme", "smart-log", self._path, "-o", "json"],
+            capture_output=True, text=True
+        )
+        return json.loads(result.stdout)
+
+    def get_io_stats(self) -> Dict[str, int]:
+        # Read from /sys/block/nvme0n1/stat
+        ...
+
+    def get_firmware_version(self) -> str:
+        props = self.get_properties()
+        return props.get("firmware_rev", "unknown")
+
+    def get_capacity_bytes(self) -> int:
+        ...
+
+    def supports_latency_monitoring(self) -> bool:
+        return True  # NVMe always supports block tracepoints
+
+    def get_properties(self) -> Dict[str, Any]:
+        result = subprocess.run(
+            ["nvme", "id-ctrl", self._path, "-o", "json"],
+            capture_output=True, text=True
+        )
+        return json.loads(result.stdout)
+```
+
+### HAL Configuration (Platform Profiles)
+
+```yaml
+# config/platforms/nvidia_dgx.yaml
+platform:
+  name: "NVIDIA DGX A100"
+  arch: x86_64
+
+hal:
+  storage:
+    backends:
+      - type: nvme
+        discovery: sysfs       # /sys/class/nvme/
+      - type: sas
+        enabled: false
+
+  pcie:
+    backends:
+      - type: linux_sysfs
+
+  network:
+    backends:
+      - type: ethtool
+      - type: rdma
+        enabled: true          # GPU-Direct RDMA present
+
+  gpu:
+    backends:
+      - type: nvidia
+        smi_path: /usr/bin/nvidia-smi
+
+  thermal:
+    backends:
+      - type: hwmon
+      - type: ipmi
+        enabled: true
+
+
+# config/platforms/storage_jbof.yaml
+platform:
+  name: "Storage JBOF (NVMe-oF Target)"
+  arch: x86_64
+
+hal:
+  storage:
+    backends:
+      - type: nvme
+        discovery: sysfs
+        filter: "nvme[0-9]*"   # all NVMe devices
+
+  pcie:
+    backends:
+      - type: linux_sysfs
+
+  network:
+    backends:
+      - type: ethtool
+      - type: rdma
+        enabled: true          # NVMe-oF over RDMA
+
+  gpu:
+    backends: []               # no GPUs on storage node
+
+  thermal:
+    backends:
+      - type: hwmon
+      - type: ipmi
+```
+
+### How Collectors Use HAL
+
+```python
+# collectors/storage.py (updated to use HAL)
+from hal.registry import DeviceRegistry
+from hal.storage.base import AbstractStorageDevice
+from collectors.base import BaseCollector
+
+
+class StorageCollector(BaseCollector):
+    """Storage diagnostics collector — hardware-agnostic via HAL."""
+
+    def __init__(self, config, registry: DeviceRegistry):
+        super().__init__(config)
+        self._registry = registry
+
+    def discover_devices(self):
+        """Get all storage devices from HAL (NVMe, SAS, SATA — transparent)."""
+        return self._registry.get_devices_by_type("nvme") + \
+               self._registry.get_devices_by_type("sas") + \
+               self._registry.get_devices_by_type("sata")
+
+    def collect_health(self):
+        """Collect health from all storage devices, regardless of type."""
+        for device in self.discover_devices():
+            smart = device.get_smart_data()
+            yield {
+                "device": device.get_id(),
+                "type": device.get_type(),
+                "healthy": device.is_healthy(),
+                "temperature": smart.get("temperature"),
+                "wear_level": smart.get("percentage_used"),
+            }
+
+    def get_probe_targets(self):
+        """Return only devices that support eBPF latency tracing."""
+        return [d for d in self.discover_devices()
+                if d.supports_latency_monitoring()]
+```
+
+### Benefits of HAL
+
+| Benefit | Description |
+|---------|-------------|
+| **Hardware hot-swap** | Replace NVMe with SAS → change platform config, not code |
+| **Multi-vendor support** | Same collector works for Samsung, Intel, Micron NVMe |
+| **Testing** | Mock HAL backends in unit tests (no real hardware) |
+| **Platform profiles** | DGX, storage JBOF, generic x86 — preconfigured |
+| **Graceful degradation** | If a HAL backend fails to load, agent continues with others |
+| **Discovery** | Auto-detect available hardware at startup |
+| **Future-proof** | Add CXL memory, new GPU vendors without touching core |
 
 ---
 
