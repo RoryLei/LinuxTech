@@ -26,4 +26,5 @@ const TOPICS = [
   TOPIC_GIT,
   TOPIC_DBUS,
   TOPIC_DEVICE_TREE,
+  TOPIC_RTC,
 ];
