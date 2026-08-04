@@ -564,6 +564,270 @@ mce_events probe: >50 corrected ECC errors on DIMM A1 today
          └── Add memory health to node admission criteria
 ```
 
+#### Flow 5: NVMe Queue Depth Saturation
+
+```
+nvme_queue_depth probe: in-flight = max (1023) for >5s on nvme2n1
+    │
+    ├──▶ Correlate: Check nvme_latency (all I/Os slow or just some?)
+    │                Check block_errors (any EIO/timeout?)
+    │                Check thermal (drive overheating?)
+    │
+    ├──▶ Diagnose: "NVMe controller firmware hang — not draining queue"
+    │
+    ├──▶ Immediate Actions:
+    │    ├── Auto: NVMe controller reset (echo 1 > /sys/.../reset)
+    │    ├── Auto: If multipath, failover to alternate path
+    │    ├── Alert: Storage admin with controller state dump
+    │    └── If reset fails: hot-remove + rescan
+    │
+    └──▶ Long-Term:
+         ├── Report to drive vendor (firmware bug)
+         ├── Deploy firmware update across fleet
+         ├── Implement per-namespace QD limit (avoid one NS starving others)
+         └── Add pre-production FW qualification test for queue stall
+```
+
+#### Flow 6: Block I/O Errors
+
+```
+block_errors probe: 3x EIO on nvme1n1 LBA range 0x800000-0x800FFF
+    │
+    ├──▶ Correlate: Check nvme_latency (latency spike before EIO?)
+    │                Check aer_monitor (PCIe errors on same device?)
+    │                Check SMART (media_errors, unsafe_shutdowns?)
+    │
+    ├──▶ Diagnose: "NAND block failure at physical location X"
+    │
+    ├──▶ Immediate Actions:
+    │    ├── Auto: Mark drive as degraded in RAID/LVM
+    │    ├── Auto: Begin RAID rebuild from parity/mirror
+    │    ├── Alert: "Drive nvme1n1 has unrecoverable media errors"
+    │    └── Auto: Set drive read-only (prevent further data loss)
+    │
+    └──▶ Long-Term:
+         ├── RMA drive with EIO log as evidence
+         ├── Review drive batch (manufacturing defect check)
+         ├── Increase over-provisioning for this drive model
+         └── Add SMART media_errors to predictive model (alert before EIO)
+```
+
+#### Flow 7: PCIe Link Recovery Storm
+
+```
+link_recovery probe: 5 pcie_do_recovery calls in 3 minutes on 0000:3b:00.0
+    │
+    ├──▶ Correlate: Check aer_monitor (what errors triggered recovery?)
+    │                Check thermal (slot temperature?)
+    │                Check link speed (downgraded after recovery?)
+    │
+    ├──▶ Diagnose: "PCIe connector intermittent contact — thermal expansion"
+    │
+    ├──▶ Immediate Actions:
+    │    ├── Auto: Disable device before system instability
+    │    ├── Auto: If GPU, drain jobs from this accelerator
+    │    ├── Alert: "Device 3b:00.0 link unstable — physical inspection needed"
+    │    └── Log: timestamp correlation with ambient temperature
+    │
+    └──▶ Long-Term:
+         ├── Reseat card / replace riser cable
+         ├── If repeated: RMA card or motherboard slot
+         ├── Add link-recovery-rate to node health score
+         └── Implement thermal cycling test in qualification
+```
+
+#### Flow 8: SAS PHY Errors
+
+```
+sas_phy_errors probe: invalid_dword_count increasing 100/hour on phy-0:3
+    │
+    ├──▶ Correlate: Check both ends (HBA phy + expander phy counters)
+    │                Check nvme_latency on drives behind this phy
+    │                Check thermal (cable routing near hot components?)
+    │
+    ├──▶ Diagnose: "SAS cable degradation between HBA port 3 and expander"
+    │
+    ├──▶ Immediate Actions:
+    │    ├── Alert: "Replace SAS cable on port 3 within maintenance window"
+    │    ├── Auto: If multipath, verify alternate path is healthy
+    │    ├── Auto: Reduce link speed (12G → 6G) to reduce error rate
+    │    └── Log: per-phy error rate trend for fleet analytics
+    │
+    └──▶ Long-Term:
+         ├── Replace SAS cable
+         ├── Audit cable bend radius and routing (EMI exposure)
+         ├── Add phy-error-rate to JBOD health dashboard
+         └── Set preventive threshold: replace cable at >50 errors/hour
+```
+
+#### Flow 9: RDMA/RoCE Errors
+
+```
+rdma_errors probe: QP errors on mlx5_0, CQE status=TRANSPORT_RETRY_EXCEEDED
+    │
+    ├──▶ Correlate: Check tcp_retrans (same destination affected?)
+    │                Check aer_monitor (NIC PCIe errors?)
+    │                Check switch PFC counters (pause storm?)
+    │
+    ├──▶ Diagnose: "PFC pause storm causing RDMA timeout on Leaf switch 5"
+    │
+    ├──▶ Immediate Actions:
+    │    ├── Auto: Fall back to TCP for affected connections
+    │    ├── Auto: Reduce RDMA queue depth (back-pressure)
+    │    ├── Alert: Network team — "PFC storm on switch X port Y"
+    │    └── Auto: Reroute NCCL traffic if alternate path exists
+    │
+    └──▶ Long-Term:
+         ├── Tune ECN/DCQCN thresholds on switch
+         ├── Implement per-port PFC watchdog timer
+         ├── NIC firmware update (better congestion handling)
+         └── Consider RoCEv2 → iWARP migration for robustness
+```
+
+#### Flow 10: GPU IOMMU Fault
+
+```
+iommu_fault probe: io_page_fault dev=0000:3b:00.0 addr=0xDEAD0000 flags=WRITE
+    │
+    ├──▶ Correlate: Check fence_timeout (GPU hang shortly after?)
+    │                Check dmesg (driver error messages?)
+    │                Check if specific user process triggered it
+    │
+    ├──▶ Diagnose: "GPU driver bug — invalid DMA write to freed buffer"
+    │
+    ├──▶ Immediate Actions:
+    │    ├── Auto: Kill offending process (SIGKILL)
+    │    ├── Auto: Collect GPU state dump + stack trace
+    │    ├── Alert: "IOMMU fault on GPU — possible driver bug"
+    │    └── If repeated: disable device, mark node unhealthy
+    │
+    └──▶ Long-Term:
+         ├── Report bug to GPU driver team with fault dump
+         ├── Pin driver version until fix available
+         ├── Enable IOMMU strict mode for early detection
+         └── Add IOMMU fault counter to GPU health pre-check
+```
+
+#### Flow 11: DMA Mapping Failure
+
+```
+dma_failures probe: dma_map_page returned 0 in nvme_queue_rq (5 times/sec)
+    │
+    ├──▶ Correlate: Check memory pressure (low free memory?)
+    │                Check other DMA consumers (GPU, NIC all mapping?)
+    │                Check SWIOTLB usage (bounce buffer full?)
+    │
+    ├──▶ Diagnose: "SWIOTLB buffer exhausted under concurrent GPU + NVMe DMA"
+    │
+    ├──▶ Immediate Actions:
+    │    ├── Alert: "DMA mapping failures — I/O will fail"
+    │    ├── Auto: Reduce concurrent I/O queue depth
+    │    ├── Auto: Kill lowest-priority DMA consumers
+    │    └── If persistent: reboot with larger SWIOTLB (kernel param)
+    │
+    └──▶ Long-Term:
+         ├── Increase SWIOTLB: kernel boot param swiotlb=131072
+         ├── Enable IOMMU passthrough for trusted devices (bypass bounce)
+         ├── Review DMA mapping lifetime (drivers holding maps too long?)
+         └── Consider CMA (Contiguous Memory Allocator) reservation
+```
+
+#### Flow 12: Thermal Throttling
+
+```
+throttle_events probe: thermal_zone_trip type=critical zone=x86_pkg_temp temp=100°C
+    │
+    ├──▶ Correlate: Check cpu_freq (frequency dropped to minimum?)
+    │                Check nvme_latency (I/O stalled due to CPU throttle?)
+    │                Check fan RPM via IPMI (fan failed?)
+    │
+    ├──▶ Diagnose: "Fan 3 failed → CPU package temp hit Tjmax"
+    │
+    ├──▶ Immediate Actions:
+    │    ├── CRITICAL Alert: Facilities team + on-call SRE
+    │    ├── Auto: Reduce CPU power limit (RAPL) to prevent shutdown
+    │    ├── Auto: Migrate workloads to other nodes
+    │    └── If temp still rising: orderly shutdown to prevent damage
+    │
+    └──▶ Long-Term:
+         ├── Replace failed fan
+         ├── Add fan health to pre-job admission check
+         ├── Install redundant fan monitoring (BMC + OS-level)
+         └── Review airflow design (hot aisle containment)
+```
+
+#### Flow 13: CPU Frequency Anomaly
+
+```
+cpu_freq probe: all 64 CPUs dropped to 800MHz simultaneously
+    │
+    ├──▶ Correlate: Check throttle_events (thermal trip?)
+    │                Check RAPL power readings (power limit hit?)
+    │                Check kernel governor (performance vs powersave?)
+    │
+    ├──▶ Diagnose: "BIOS RAPL limit set too low for this workload"
+    │
+    ├──▶ Immediate Actions:
+    │    ├── Alert: "All CPUs throttled — performance degraded 75%"
+    │    ├── Auto: Check and raise RAPL limit if thermal headroom exists
+    │    ├── Auto: Log correlation with workload (which job triggered?)
+    │    └── If thermal: refer to Flow 12
+    │
+    └──▶ Long-Term:
+         ├── Adjust BIOS power policy for server workload profile
+         ├── Set appropriate RAPL limits per node class (GPU vs storage)
+         ├── Implement CPU frequency SLO monitoring
+         └── Evaluate workload placement (power-hungry jobs on high-TDP nodes)
+```
+
+#### Flow 14: IRQ Storm
+
+```
+irq_storm probe: IRQ 42 (my-nic) firing >500K/sec, softirq CPU usage >80%
+    │
+    ├──▶ Correlate: Check ethtool -S (NIC error counters?)
+    │                Check tcp_retrans (network still functional?)
+    │                Check aer_monitor (NIC PCIe errors?)
+    │
+    ├──▶ Diagnose: "NIC firmware bug — spurious interrupts after link flap"
+    │
+    ├──▶ Immediate Actions:
+    │    ├── Auto: Disable offending IRQ (echo 0 > /proc/irq/42/smp_affinity)
+    │    ├── Auto: If NIC, trigger link down/up to reset
+    │    ├── Alert: "IRQ storm on device X — system performance impacted"
+    │    └── If persists: hot-remove device
+    │
+    └──▶ Long-Term:
+         ├── NIC firmware update
+         ├── Enable IRQ rate limiting (if driver supports)
+         ├── Move to threaded IRQ (isolate impact to one kthread)
+         └── Add IRQ rate monitoring to node health baseline
+```
+
+#### Flow 15: NUMA Allocation Imbalance
+
+```
+numa_imbalance probe: >40% allocations for nvme0n1 I/O from remote NUMA node
+    │
+    ├──▶ Correlate: Check nvme_latency (higher latency than other drives?)
+    │                Check cpu_freq (is local node overloaded?)
+    │                Check scheduler (process affinity wrong?)
+    │
+    ├──▶ Diagnose: "NVMe IRQ pinned to node 0 but I/O threads on node 1"
+    │
+    ├──▶ Immediate Actions:
+    │    ├── Auto: Re-pin IRQs to match workload NUMA node
+    │    ├── Auto: Set irqbalance policy for NVMe devices
+    │    ├── Alert: "NUMA imbalance detected — 15% latency penalty"
+    │    └── Log: quantify latency delta (local vs remote allocation)
+    │
+    └──▶ Long-Term:
+         ├── Configure proper CPU affinity in systemd/container runtime
+         ├── Use numactl for latency-sensitive workloads
+         ├── Review PCIe slot ↔ NUMA node mapping in BIOS
+         └── Implement NUMA-aware storage scheduler (node-local I/O first)
+```
+
 ### Automated Remediation Decision Matrix
 
 ```
