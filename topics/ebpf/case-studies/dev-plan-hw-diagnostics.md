@@ -287,6 +287,51 @@ ebpf-hw-diag/
 │   │                             #   supports log rotation by size; auto-adds timestamp field
 │   └── alerter.py               # AlertEngine: evaluates declarative rules against metric values;
 │                                 #   supports threshold + duration conditions; fires webhooks/syslog
+├── events/                       # Typed event schema (data contracts between layers)
+│   ├── __init__.py              # Package init; exports all event dataclasses
+│   ├── base.py                   # DiagEvent base dataclass: timestamp, source_probe, device_id,
+│   │                             #   severity; all events inherit from this
+│   ├── storage.py               # NVMeLatencyEvent, BlockErrorEvent, QueueDepthEvent
+│   ├── pcie.py                  # PCIeAEREvent (bdf, status_hex, errors[], tlp_header)
+│   ├── network.py               # TCPRetransmitEvent, RDMAErrorEvent
+│   ├── gpu.py                   # FenceTimeoutEvent, IOMMUFaultEvent
+│   ├── thermal.py               # ThermalTripEvent, CpuFreqEvent
+│   ├── memory.py               # DMAFailureEvent, MCEEvent, NUMAImbalanceEvent
+│   └── correlated.py           # CorrelatedEvent: trigger_events[], root_cause, action, confidence
+├── core/                         # Framework infrastructure (not domain-specific)
+│   ├── __init__.py
+│   ├── probe_manager.py         # ProbeManager: load/attach/monitor/hot-reload eBPF probes;
+│   │                             #   detects kernel capabilities (tracepoint availability);
+│   │                             #   graceful degradation if probe fails; atomic program replace
+│   ├── event_bus.py             # EventBus: fan-out routing — collector.emit(event) dispatches
+│   │                             #   to [prometheus, json_log, alerter, correlator] concurrently;
+│   │                             #   supports filtering, rate limiting, backpressure
+│   ├── rate_limiter.py          # TokenBucket rate limiter: per-collector event rate cap;
+│   │                             #   prevents OOM under event storms (configurable burst/rate)
+│   ├── health.py                # HealthCheck: /healthz HTTP endpoint; self-metrics
+│   │                             #   (events_processed, probe_load_failures, uptime, memory_usage);
+│   │                             #   liveness probe for Kubernetes readinessProbe
+│   └── capabilities.py         # CapabilityDetector: check kernel version, available tracepoints,
+│                                 #   CAP_PERFMON/CAP_BPF permissions, BTF availability;
+│                                 #   determines which probes can be loaded on this system
+├── correlator/                   # Cross-layer event correlation engine
+│   ├── __init__.py
+│   ├── engine.py                # CorrelationEngine: sliding window of recent events;
+│   │                             #   evaluates rules against window; emits CorrelatedEvent
+│   │                             #   when pattern matches across multiple probes/subsystems
+│   ├── rules.py                 # CorrelationRule dataclass: conditions[], time_window,
+│   │                             #   root_cause, recommended_action, confidence_score
+│   └── builtin_rules.yaml      # Pre-defined correlation rules:
+│                                 #   - thermal_trip + nvme_latency_spike = cooling_failure
+│                                 #   - aer_fatal + fence_timeout + same_bdf = pcie_link_failure
+│                                 #   - mce_burst + thermal_trip = memory_thermal_stress
+│                                 #   - tcp_retrans + rdma_errors = fabric_congestion
+├── cli/                          # Command-line interface for one-shot diagnostics
+│   ├── __init__.py
+│   ├── main.py                  # CLI entry: argparse with subcommands (run, check, status, version)
+│   ├── check.py                 # One-shot health check: `diagd check --storage --pcie`
+│   │                             #   runs probes for 10s, reports pass/fail, exits
+│   └── status.py               # Show agent status: loaded probes, event rates, health
 ├── config/
 │   ├── default.yaml             # Default agent configuration: collector enable/disable, thresholds,
 │   │                             #   exporter ports, log paths, poll intervals
@@ -302,11 +347,25 @@ ebpf-hw-diag/
 │   │   ├── test_decoders.py     # Test pure decoding functions (AER bits, latency calc, IP format)
 │   │   ├── test_exporters.py    # Test Prometheus metrics, JSON serialization, alert evaluation
 │   │   ├── test_config.py       # Test config loading, env overrides, validation, defaults
-│   │   └── test_hal.py          # Test HAL registry, mock device behavior, backend swap
+│   │   ├── test_hal.py          # Test HAL registry, mock device behavior, backend swap
+│   │   ├── test_correlator.py   # Test correlation rules, sliding window, pattern matching
+│   │   ├── test_event_bus.py    # Test fan-out dispatch, rate limiting, backpressure
+│   │   ├── test_probe_manager.py # Test capability detection, graceful degradation
+│   │   └── test_events.py       # Test event serialization, schema validation
 │   ├── integration/             # Requires root + BCC; tests actual eBPF probe loading
 │   │   ├── test_probe_loading.py    # Verify each .bpf.c compiles and attaches in running kernel
 │   │   ├── test_event_pipeline.py   # Verify events flow probe → perf buffer → userspace
-│   │   └── test_prometheus.py       # Start agent, verify /metrics responds with expected metrics
+│   │   ├── test_prometheus.py       # Start agent, verify /metrics responds with expected metrics
+│   │   └── test_correlator_live.py  # Inject real events, verify correlation engine output
+│   ├── perf/                    # Performance and stress tests
+│   │   ├── test_throughput.py   # Measure: max events/sec before drop, CPU at 100K evt/s
+│   │   ├── test_memory.py       # Verify memory stays bounded under sustained load
+│   │   └── test_overhead.py     # Measure agent CPU overhead (target: <1% idle, <5% under load)
+│   ├── chaos/                   # Fault injection and resilience tests
+│   │   ├── test_probe_detach.py # Simulate probe detaching mid-run (kill BPF program)
+│   │   ├── test_buffer_overflow.py  # Fill perf buffer faster than consumer, verify no OOM
+│   │   ├── test_permission_loss.py  # Drop CAP_PERFMON during runtime, verify graceful degrade
+│   │   └── test_hal_failure.py  # HAL backend subprocess crashes, verify agent survives
 │   ├── mock/                    # Test doubles for isolated testing
 │   │   ├── mock_events.py       # Synthetic eBPF events (MockAEREvent, MockNVMeEvent, etc.)
 │   │   ├── mock_tracepoints.py  # Fake tracepoint data generators for event burst simulation
@@ -841,3 +900,174 @@ rules:
 | M3: Network monitoring | 6 | TCP retrans tracking, alerts fire |
 | M4: Full sensor coverage | 10 | All 6 subsystems monitored |
 | M5: Production ready | 12 | <1% CPU overhead, Grafana dashboard, docs |
+
+---
+
+## BCC → libbpf Migration Strategy
+
+### Why Migrate
+
+| Aspect | BCC (Development) | libbpf + CO-RE (Production) |
+|--------|-------------------|----------------------------|
+| Startup | Slow (compiles at runtime) | Fast (pre-compiled .o) |
+| Dependencies | Clang/LLVM + kernel headers on target | Only libbpf (~100KB) |
+| Portability | Needs exact kernel headers | CO-RE + BTF = run anywhere |
+| Resource | ~150MB RAM for compiler | ~5MB total |
+
+### Migration Criteria (When to Switch)
+
+```
+Phase 1-4: Use BCC (rapid prototyping, easier debugging)
+    ↓ trigger: when probe is STABLE (no changes for 2+ sprints)
+Phase 5+:  Compile stable probes to .bpf.o with libbpf
+    ↓ trigger: production deployment target
+Release:   Ship only .bpf.o files (no BCC dependency on target)
+```
+
+### Migration Steps Per Probe
+
+1. Rewrite `.bpf.c` to use libbpf conventions (`SEC()`, `vmlinux.h`, no BCC macros)
+2. Generate skeleton: `bpftool gen skeleton probe.bpf.o > probe.skel.h`
+3. Write thin Python wrapper using `ctypes` + subprocess to load skeleton
+4. Alternatively: use `pylibbpf` or call Go/Rust loader from Python via subprocess
+5. Keep BCC version as fallback for kernels without BTF
+
+### Dual-Mode Support
+
+```python
+# core/probe_manager.py
+class ProbeManager:
+    def load_probe(self, probe_name: str):
+        if self._has_libbpf_binary(probe_name):
+            return self._load_libbpf(probe_name)  # fast path
+        elif self._has_bcc_source(probe_name):
+            return self._load_bcc(probe_name)      # dev/fallback path
+        else:
+            raise ProbeNotFoundError(probe_name)
+```
+
+---
+
+## Rate Limiting & Backpressure Strategy
+
+### Problem
+Under failure conditions (e.g., IRQ storm, AER burst), a probe can generate
+millions of events/second. Without rate limiting, the agent will:
+- Exhaust perf buffer → events dropped silently
+- OOM from unbounded event queue in userspace
+- Starve CPU processing events instead of actual workload
+
+### Solution: Three-Layer Protection
+
+```
+Layer 1: Kernel-side (BPF program)
+    - BPF_HASH rate counter per device
+    - If events > threshold/sec → stop submitting to perf buffer
+    - Log "rate limited" counter in BPF map (visible to userspace)
+
+Layer 2: Perf Buffer (kernel ↔ userspace boundary)
+    - Fixed-size ring buffer (configurable, default 64 pages/CPU)
+    - If full → kernel drops oldest events (not blocking producer)
+    - Agent reads lost_events count and reports as metric
+
+Layer 3: Userspace Event Bus
+    - Token bucket rate limiter per collector (default: 10K events/sec)
+    - Backpressure: if exporter queue full, drop with "backpressure" metric
+    - Sampling: under overload, switch to 1-in-N sampling (configurable)
+```
+
+### Configuration
+
+```yaml
+# config/default.yaml additions:
+rate_limiting:
+  global_max_events_per_sec: 100000
+  per_collector:
+    storage: 50000
+    pcie: 10000
+    network: 50000
+    gpu: 5000
+    thermal: 1000
+    memory: 5000
+  backpressure:
+    strategy: drop_oldest       # drop_oldest | sample | block
+    sample_rate_under_pressure: 10  # keep 1 in 10 events
+  perf_buffer:
+    pages_per_cpu: 64           # 64 * 4KB = 256KB per CPU
+    lost_events_alert_threshold: 1000  # alert if >1000 events lost/minute
+```
+
+### Self-Monitoring Metrics
+
+```
+# Exposed on /metrics:
+diagd_events_processed_total{collector="storage"} 12345
+diagd_events_dropped_total{collector="storage",reason="rate_limit"} 0
+diagd_events_dropped_total{collector="pcie",reason="backpressure"} 42
+diagd_perf_buffer_lost_total{probe="aer_monitor"} 0
+diagd_probe_load_failures_total{probe="rdma_errors"} 1
+diagd_uptime_seconds 3600
+diagd_cpu_usage_percent 0.8
+diagd_memory_bytes 52428800
+```
+
+---
+
+## Event Flow Architecture (Updated)
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                         Kernel Space                                  │
+│                                                                       │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐              │
+│  │ Probe 1  │ │ Probe 2  │ │ Probe 3  │ │ Probe N  │              │
+│  │(storage) │ │ (pcie)   │ │(network) │ │  (...)   │              │
+│  └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘              │
+│       │ [rate limit]│            │             │                     │
+│       ▼             ▼            ▼             ▼                     │
+│  ┌────────────────────────────────────────────────────┐             │
+│  │              Perf Ring Buffers (per-CPU)            │             │
+│  └────────────────────────┬───────────────────────────┘             │
+└───────────────────────────┼─────────────────────────────────────────┘
+                            │ poll (1ms interval)
+                            ▼
+┌───────────────────────────────────────────────────────────────────────┐
+│                        Userspace Agent                                  │
+│                                                                         │
+│  ┌──────────────┐                                                      │
+│  │ ProbeManager │ — load/attach/health-check/hot-reload probes        │
+│  └──────┬───────┘                                                      │
+│         │ raw bytes                                                     │
+│         ▼                                                               │
+│  ┌──────────────┐                                                      │
+│  │ Collectors   │ — decode raw → typed DiagEvent; apply device filter  │
+│  │ (per-subsys) │                                                      │
+│  └──────┬───────┘                                                      │
+│         │ DiagEvent                                                     │
+│         ▼                                                               │
+│  ┌──────────────┐   rate_limiter (token bucket per collector)          │
+│  │  Event Bus   │ ─────────────────────────────────────────────┐      │
+│  └──┬───┬───┬───┘                                              │      │
+│     │   │   │                                                   │      │
+│     ▼   ▼   ▼                                                   ▼      │
+│  ┌────┐┌────┐┌────────┐                              ┌──────────────┐ │
+│  │Prom││JSON││Alerter │                              │ Correlator   │ │
+│  │etheus││Log ││        │                              │ Engine       │ │
+│  └────┘└────┘└────────┘                              │ (sliding     │ │
+│                                                       │  window +    │ │
+│                                                       │  rule eval)  │ │
+│                                                       └──────┬───────┘ │
+│                                                              │         │
+│                                                    CorrelatedEvent     │
+│                                                              │         │
+│                                                     ┌────────▼───────┐ │
+│                                                     │ Action Engine  │ │
+│                                                     │ (webhook, K8s  │ │
+│                                                     │  taint, IPMI)  │ │
+│                                                     └────────────────┘ │
+│                                                                         │
+│  ┌──────────────┐                                                      │
+│  │ Health Check │ — /healthz + self-metrics + liveness probe           │
+│  └──────────────┘                                                      │
+└───────────────────────────────────────────────────────────────────────┘
+```
