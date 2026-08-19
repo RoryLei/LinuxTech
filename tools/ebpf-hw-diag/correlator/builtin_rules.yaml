@@ -1,0 +1,64 @@
+# Built-in correlation rules for HW diagnostics
+
+rules:
+  - name: pcie_link_failure_gpu_hang
+    conditions:
+      - event_type: PCIeAEREvent
+        field: severity_code
+        op: "=="
+        value: 1
+      - event_type: FenceTimeoutEvent
+    time_window_sec: 30
+    device_scope: same_device
+    root_cause: "PCIe link failure causing GPU hang"
+    recommended_action: "Disable device; drain node; inspect connector"
+    confidence: 0.92
+    priority: 1
+
+  - name: thermal_throttle_io_stall
+    conditions:
+      - event_type: ThermalTripEvent
+        field: trip_type
+        op: "<="
+        value: 1
+      - event_type: NVMeLatencyEvent
+        field: latency_us
+        op: ">"
+        value: 5000
+    time_window_sec: 60
+    device_scope: any
+    root_cause: "Thermal throttling causing I/O latency spike"
+    recommended_action: "Alert cooling team; reduce CPU power; migrate workloads"
+    confidence: 0.85
+    priority: 2
+
+  - name: nvme_pcie_degradation
+    conditions:
+      - event_type: PCIeAEREvent
+        field: errors
+        op: contains
+        value: "Bad TLP"
+      - event_type: NVMeLatencyEvent
+        field: latency_us
+        op: ">"
+        value: 1000
+    time_window_sec: 60
+    device_scope: same_device
+    root_cause: "PCIe signal degradation causing NVMe performance drop"
+    recommended_action: "Replace PCIe cable/riser; reseat NVMe device"
+    confidence: 0.87
+    priority: 2
+
+  - name: memory_thermal_stress
+    conditions:
+      - event_type: MCEEvent
+        field: error_count
+        op: ">"
+        value: 5
+      - event_type: ThermalTripEvent
+    time_window_sec: 120
+    device_scope: any
+    root_cause: "Memory ECC errors induced by thermal stress"
+    recommended_action: "Check memory cooling; page-offline; schedule DIMM RMA"
+    confidence: 0.80
+    priority: 2

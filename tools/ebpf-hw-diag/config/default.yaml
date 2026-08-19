@@ -1,0 +1,59 @@
+# eBPF HW Diagnostics Agent — Default Configuration
+
+agent:
+  log_level: info
+  poll_interval_ms: 1000
+
+collectors:
+  storage:
+    enabled: true
+    latency_threshold_us: 5000    # P99 alert threshold
+    devices: ["nvme*"]            # glob pattern
+  pcie:
+    enabled: true
+    severity_filter: all          # all, corrected, fatal, nonfatal
+  network:
+    enabled: false                # enable for AI training clusters
+    retransmit_alert_rate: 100    # per second
+  thermal:
+    enabled: true
+    throttle_alert: true
+  gpu:
+    enabled: false                # enable on GPU servers
+    fence_timeout_ms: 5000
+  memory:
+    enabled: true
+    mce_alert: true
+
+exporters:
+  prometheus:
+    enabled: true
+    port: 9101
+    path: /metrics
+  json_log:
+    enabled: true
+    output: /var/log/ebpf-hw-diag/events.jsonl
+    rotate_mb: 100
+  alerter:
+    enabled: false
+    rules_file: config/alert_rules.yaml
+    backends: []
+
+correlator:
+  enabled: true
+  window_sec: 300
+  max_window_events: 50000
+  cooldown_sec: 300
+
+rate_limiting:
+  global_max_events_per_sec: 100000
+  per_collector:
+    storage: 50000
+    pcie: 10000
+    network: 50000
+    thermal: 1000
+    memory: 5000
+
+health:
+  enabled: true
+  port: 9102

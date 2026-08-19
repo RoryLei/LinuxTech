@@ -1,0 +1,28 @@
+# Alert Rules for eBPF HW Diagnostics Agent
+
+rules:
+  - name: pcie_fatal_error
+    condition: "severity == 'critical' and source_probe == 'aer_monitor'"
+    severity: critical
+    message: "PCIe Fatal error on device {device_id}"
+
+  - name: nvme_high_latency
+    condition: "source_probe == 'nvme_latency' and latency_us > 5000"
+    duration_sec: 60
+    severity: warning
+    message: "NVMe {device_id} P99 latency {latency_us}us"
+
+  - name: thermal_throttle
+    condition: "source_probe == 'throttle_events' and trip_type <= 1"
+    severity: warning
+    message: "Thermal throttling on zone {zone_name} at {temperature_c}C"
+
+  - name: ecc_errors
+    condition: "source_probe == 'mce_events' and error_count > 10"
+    severity: warning
+    message: "ECC errors increasing on {dimm_label}: {error_count} errors"
+
+  - name: dma_failure
+    condition: "source_probe == 'dma_failures'"
+    severity: critical
+    message: "DMA mapping failure in {calling_function} by {comm}"
