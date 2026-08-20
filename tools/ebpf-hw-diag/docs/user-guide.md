@@ -348,6 +348,81 @@ Each event is written as a single JSON line to the configured output file:
 
 ---
 
+## Verifying Error Detection (Is Hardware Healthy?)
+
+Once the agent is running, use these methods to check if any hardware errors have been detected:
+
+### Quick Status Check
+
+```bash
+# One-liner: any problems detected?
+curl -s http://localhost:9102/healthz | python3 -m json.tool
+# If events_dispatched > 0 → hardware events have been captured
+```
+
+### Method 1: Prometheus Metrics (Real-time Counters)
+
+```bash
+# Check PCIe AER errors
+curl -s http://localhost:9101/metrics | grep "diagd_pcie_aer_errors_total"
+# diagd_pcie_aer_errors_total{device="0000:03:00.0",severity="Corrected"} 5
+# diagd_pcie_aer_errors_total{device="0000:81:00.0",severity="Fatal"} 1
+
+# Check total events by probe
+curl -s http://localhost:9101/metrics | grep "diagd_events_processed_total"
+
+# If value is 0 → no errors detected (hardware healthy)
+# If value > 0 → errors detected (check JSON log for details)
+```
+
+### Method 2: JSON Log (Full Event History)
+
+```bash
+# View recent events
+tail -10 /var/log/ebpf-hw-diag/events.jsonl
+
+# Filter critical events only
+grep '"severity": "critical"' /var/log/ebpf-hw-diag/events.jsonl
+
+# Filter correlated events (root cause analysis)
+grep '"event_type": "CorrelatedEvent"' /var/log/ebpf-hw-diag/events.jsonl
+
+# Count errors by device
+cat /var/log/ebpf-hw-diag/events.jsonl | \
+  python3 -c "
+import json, sys, collections
+c = collections.Counter()
+for line in sys.stdin:
+    e = json.loads(line)
+    c[f\"{e.get('device_id','')} [{e.get('severity','')}]\"] += 1
+for k, v in c.most_common(10):
+    print(f'  {v:5d}  {k}')
+"
+```
+
+### Method 3: journalctl (Agent Warnings & Correlations)
+
+```bash
+# Correlation events and alerts are logged to systemd journal
+sudo journalctl -u ebpf-hw-diag --since "1 hour ago" | grep -E "ALERT|CORRELATION|WARNING"
+
+# Example output:
+# CORRELATION [nvme_pcie_degradation]: PCIe signal degradation causing NVMe performance drop
+# ALERT [critical] pcie_fatal_error: PCIe Fatal error on device 0000:81:00.0
+```
+
+### Interpretation Guide
+
+| events_dispatched | Meaning | Action |
+|-------------------|---------|--------|
+| 0 | No hardware errors detected | Hardware healthy ✅ |
+| Low (<10/hour) | Occasional correctable errors | Monitor trend, likely normal |
+| Medium (10-100/hour) | Degradation in progress | Investigate device, plan maintenance |
+| High (>100/hour) | Active hardware failure | Immediate action (see JSON log for device) |
+| CorrelatedEvent in log | Cross-layer root cause identified | Follow `recommended_action` field |
+
+---
+
 ## Security Considerations
 
 - Agent requires `root` or `CAP_BPF + CAP_PERFMON` capabilities

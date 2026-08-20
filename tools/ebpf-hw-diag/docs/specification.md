@@ -432,7 +432,45 @@ CONFIG_TRACEPOINTS=y
 
 ---
 
-## 8. Testing Strategy
+## 8. Operational Verification
+
+### 8.1 How to Confirm Errors Are Being Detected
+
+The agent outputs diagnostic data through 3 channels. Each channel answers
+different operational questions:
+
+| Channel | Location | Question Answered |
+|---------|----------|-------------------|
+| Prometheus | `http://localhost:9101/metrics` | "How many errors, right now?" (counters reset on restart) |
+| JSON Log | `/var/log/ebpf-hw-diag/events.jsonl` | "What happened, when, and on which device?" (persistent history) |
+| Journal | `journalctl -u ebpf-hw-diag` | "What root cause was identified?" (CORRELATION/ALERT messages) |
+| Health | `http://localhost:9102/healthz` | "Is the agent running? Has it seen anything?" |
+
+### 8.2 Event Severity Levels
+
+| Severity | Meaning | Example |
+|----------|---------|---------|
+| `info` | Correctable / informational | PCIe correctable error (Bad TLP) |
+| `warning` | Degradation detected, not yet critical | NVMe latency > 5ms, thermal throttle |
+| `critical` | Immediate action required | PCIe Fatal error, GPU hang, DIMM failure imminent |
+
+### 8.3 Correlated Events (Root Cause Output)
+
+When the correlator identifies a cross-layer pattern, a `CorrelatedEvent` is
+emitted with:
+- `root_cause`: Human-readable diagnosis
+- `recommended_action`: What to do
+- `confidence`: 0.0-1.0 score
+- `correlated_devices`: Which devices are involved
+
+These appear in:
+- JSON log as `"event_type": "CorrelatedEvent"`
+- Journal as `CORRELATION [rule_name]: root_cause text`
+- Prometheus as `diagd_events_processed_total{source_probe="correlator"}`
+
+---
+
+## 9. Testing Strategy
 
 | Layer | Tests | Root Required | CI |
 |-------|-------|--------------|-----|
