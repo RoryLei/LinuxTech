@@ -20,6 +20,10 @@ from core.probe_manager import ProbeManager
 from core.health import HealthCheck
 from core.capabilities import CapabilityDetector
 from collectors.pcie import PCIeCollector
+from collectors.storage import StorageCollector
+from collectors.thermal import ThermalCollector
+from collectors.network import NetworkCollector
+from collectors.memory import MemoryCollector
 from exporters.prometheus_exp import PrometheusExporter
 from exporters.json_log import JsonLogExporter
 from exporters.alerter import AlertEngine
@@ -117,8 +121,45 @@ class DiagnosticsAgent:
             if pcie.start():
                 self._collectors.append(pcie)
 
-        # TODO: Add more collectors as they are implemented
-        # StorageCollector, ThermalCollector, NetworkCollector, etc.
+        # Storage (NVMe latency + block errors)
+        if collectors_config.get("storage", {}).get("enabled", False):
+            storage = StorageCollector(
+                config=collectors_config["storage"],
+                event_bus=self._event_bus,
+                probe_manager=self._probe_manager,
+            )
+            if storage.start():
+                self._collectors.append(storage)
+
+        # Thermal (throttle events + CPU freq)
+        if collectors_config.get("thermal", {}).get("enabled", False):
+            thermal = ThermalCollector(
+                config=collectors_config["thermal"],
+                event_bus=self._event_bus,
+                probe_manager=self._probe_manager,
+            )
+            if thermal.start():
+                self._collectors.append(thermal)
+
+        # Network (TCP retransmissions)
+        if collectors_config.get("network", {}).get("enabled", False):
+            network = NetworkCollector(
+                config=collectors_config["network"],
+                event_bus=self._event_bus,
+                probe_manager=self._probe_manager,
+            )
+            if network.start():
+                self._collectors.append(network)
+
+        # Memory (ECC/MCE errors)
+        if collectors_config.get("memory", {}).get("enabled", False):
+            memory = MemoryCollector(
+                config=collectors_config["memory"],
+                event_bus=self._event_bus,
+                probe_manager=self._probe_manager,
+            )
+            if memory.start():
+                self._collectors.append(memory)
 
     def run(self) -> None:
         """Main event loop — poll all collectors."""
