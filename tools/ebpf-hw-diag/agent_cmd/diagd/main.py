@@ -24,6 +24,7 @@ from collectors.storage import StorageCollector
 from collectors.thermal import ThermalCollector
 from collectors.network import NetworkCollector
 from collectors.memory import MemoryCollector
+from collectors.gpu import GPUCollector
 from exporters.prometheus_exp import PrometheusExporter
 from exporters.json_log import JsonLogExporter
 from exporters.alerter import AlertEngine
@@ -160,6 +161,16 @@ class DiagnosticsAgent:
             )
             if memory.start():
                 self._collectors.append(memory)
+
+        # GPU (fence timeout + IOMMU faults)
+        if collectors_config.get("gpu", {}).get("enabled", False):
+            gpu = GPUCollector(
+                config=collectors_config["gpu"],
+                event_bus=self._event_bus,
+                probe_manager=self._probe_manager,
+            )
+            if gpu.start():
+                self._collectors.append(gpu)
 
     def run(self) -> None:
         """Main event loop — poll all collectors."""

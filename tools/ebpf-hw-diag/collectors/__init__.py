@@ -5,6 +5,7 @@ from collectors.storage import StorageCollector
 from collectors.thermal import ThermalCollector
 from collectors.network import NetworkCollector
 from collectors.memory import MemoryCollector
+from collectors.gpu import GPUCollector
 
 __all__ = [
     "BaseCollector",
@@ -13,4 +14,5 @@ __all__ = [
     "ThermalCollector",
     "NetworkCollector",
     "MemoryCollector",
+    "GPUCollector",
 ]
