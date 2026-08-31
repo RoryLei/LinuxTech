@@ -19,7 +19,8 @@ test = [
 ]
 
 [project.scripts]
-diagd = "cmd.diagd.main:main"
+diag = "cli.main:main"
+diagd = "agent_cmd.diagd.main:main"
 
 [build-system]
 requires = ["setuptools>=68.0"]
@@ -30,4 +31,4 @@ testpaths = ["tests"]
 addopts = "-v --tb=short"
 
 [tool.coverage.run]
-source = ["events", "core", "collectors", "exporters", "correlator", "config"]
+source = ["events", "core", "collectors", "exporters", "correlator", "config", "cli"]

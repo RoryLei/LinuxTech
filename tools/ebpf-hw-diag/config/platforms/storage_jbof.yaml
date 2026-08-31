@@ -1,0 +1,25 @@
+# Storage JBOF (NVMe-oF target) platform profile.
+# Many NVMe devices, no GPU, NVMe-oF over RDMA networking.
+platform:
+  name: "Storage JBOF (NVMe-oF Target)"
+  arch: x86_64
+
+hal:
+  storage:
+    backends:
+      - type: nvme
+        discovery: sysfs
+        filter: "nvme*n*"      # all NVMe namespaces
+
+  pcie:
+    backends:
+      - type: linux_sysfs
+        only_aer_capable: true
+
+  network:
+    backends:
+      - type: rdma
+        enabled: true          # NVMe-oF over RDMA (backend not yet implemented)
+
+  gpu:
+    backends: []               # no GPUs on storage node

@@ -57,7 +57,7 @@ info "Output: ${BUILD_DIR}"
 
 # === Copy source packages ===
 info "Copying source packages..."
-for pkg in agent_cmd collectors config core correlator events exporters probes; do
+for pkg in agent_cmd cli collectors config core correlator events exporters hal probes; do
     if [[ -d "${SCRIPT_DIR}/${pkg}" ]]; then
         cp -r "${SCRIPT_DIR}/${pkg}" "${BUILD_DIR}/"
         # Remove __pycache__
@@ -138,12 +138,14 @@ mkdir -p "$LOG_DIR"
 # Copy application
 info "Installing to ${INSTALL_DIR}..."
 cp -r "${SCRIPT_DIR}/agent_cmd" "$INSTALL_DIR/"
+cp -r "${SCRIPT_DIR}/cli" "$INSTALL_DIR/"
 cp -r "${SCRIPT_DIR}/collectors" "$INSTALL_DIR/"
 cp -r "${SCRIPT_DIR}/config" "$INSTALL_DIR/"
 cp -r "${SCRIPT_DIR}/core" "$INSTALL_DIR/"
 cp -r "${SCRIPT_DIR}/correlator" "$INSTALL_DIR/"
 cp -r "${SCRIPT_DIR}/events" "$INSTALL_DIR/"
 cp -r "${SCRIPT_DIR}/exporters" "$INSTALL_DIR/"
+cp -r "${SCRIPT_DIR}/hal" "$INSTALL_DIR/"
 cp -r "${SCRIPT_DIR}/probes" "$INSTALL_DIR/"
 
 # Copy config to /etc (don't overwrite existing)
@@ -158,13 +160,28 @@ if [[ ! -f "${CONFIG_DIR}/alert_rules.yaml" ]]; then
     cp "${SCRIPT_DIR}/config/alert_rules.yaml" "${CONFIG_DIR}/alert_rules.yaml"
 fi
 
-# Create convenience wrapper script
+# Create convenience wrapper scripts
 info "Creating /usr/local/bin/diagd..."
 cat > /usr/local/bin/diagd << 'WRAPPER_EOF'
 #!/bin/bash
 exec python3 -m agent_cmd.diagd.main --config /etc/ebpf-hw-diag/config.yaml "$@"
 WRAPPER_EOF
 chmod +x /usr/local/bin/diagd
+
+info "Creating /usr/local/bin/diag..."
+cat > /usr/local/bin/diag << 'DIAG_WRAPPER_EOF'
+#!/bin/bash
+# CLI front-end: check / caps / config / monitor
+cd /opt/ebpf-hw-diag
+# Use the installed /etc config by default for the config/monitor subcommands
+case "${1:-}" in
+    config|monitor)
+        exec python3 -m cli.main "$1" --config /etc/ebpf-hw-diag/config.yaml "${@:2}" ;;
+    *)
+        exec python3 -m cli.main "$@" ;;
+esac
+DIAG_WRAPPER_EOF
+chmod +x /usr/local/bin/diag
 
 # Create systemd service
 info "Installing systemd service..."
@@ -211,7 +228,10 @@ echo "  Log dir:      ${LOG_DIR}"
 echo "  Wrapper:      /usr/local/bin/diagd"
 echo ""
 echo "  Usage:"
-echo "    sudo diagd                         # run foreground"
+echo "    diag check                         # one-shot health scan (no root)"
+echo "    diag caps                          # show kernel capabilities"
+echo "    sudo diag monitor                  # live monitoring (CLI front-end)"
+echo "    sudo diagd                         # run agent foreground"
 echo "    sudo systemctl start ${SERVICE_NAME}  # run as service"
 echo "    sudo systemctl enable ${SERVICE_NAME} # start on boot"
 echo "    sudo systemctl status ${SERVICE_NAME} # check status"
@@ -237,6 +257,7 @@ sudo systemctl disable --now ebpf-hw-diag 2>/dev/null || true
 sudo rm -rf /opt/ebpf-hw-diag
 sudo rm -rf /etc/ebpf-hw-diag
 sudo rm -f /usr/local/bin/diagd
+sudo rm -f /usr/local/bin/diag
 sudo rm -f /etc/systemd/system/ebpf-hw-diag.service
 sudo systemctl daemon-reload
 echo "Done. Log directory /var/log/ebpf-hw-diag preserved."

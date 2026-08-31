@@ -22,10 +22,13 @@ This specification covers:
 - Configuration schema
 - Performance requirements
 
-### 1.3 Out of Scope
-- Hardware Abstraction Layer (HAL) — Phase 2
-- CLI one-shot diagnostics — Phase 2
+### 1.3 Implemented
+- Hardware Abstraction Layer (HAL) — sysfs PCIe + NVMe backends, platform profiles
+- CLI one-shot diagnostics — `diag check`, `caps`, `inventory`, `config`, `monitor`
+
+### 1.4 Out of Scope
 - libbpf/CO-RE production probes — Phase 3
+- Additional HAL backends (SAS, NVIDIA GPU, RDMA, IPMI thermal) — Phase 3
 - GUI/Dashboard implementation
 
 ---

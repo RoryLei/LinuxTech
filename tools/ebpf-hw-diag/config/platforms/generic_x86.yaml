@@ -1,0 +1,16 @@
+# Generic x86 server platform profile.
+# Enables all standard sysfs-based HAL backends. Safe default for any host.
+platform:
+  name: "Generic x86 Server"
+  arch: x86_64
+
+hal:
+  storage:
+    backends:
+      - type: nvme
+        discovery: sysfs
+        filter: "nvme*n*"
+
+  pcie:
+    backends:
+      - type: linux_sysfs

@@ -1,0 +1,27 @@
+# NVIDIA DGX platform profile.
+# GPU/RDMA backends are declared but disabled until those HAL backends ship
+# (Phase 3). Unknown/disabled backends are skipped gracefully by the factory.
+platform:
+  name: "NVIDIA DGX A100"
+  arch: x86_64
+
+hal:
+  storage:
+    backends:
+      - type: nvme
+        discovery: sysfs
+        filter: "nvme*n*"
+
+  pcie:
+    backends:
+      - type: linux_sysfs
+
+  network:
+    backends:
+      - type: rdma
+        enabled: true          # GPU-Direct RDMA present (backend not yet implemented)
+
+  gpu:
+    backends:
+      - type: nvidia
+        smi_path: /usr/bin/nvidia-smi   # backend not yet implemented
