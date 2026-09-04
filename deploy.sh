@@ -139,10 +139,22 @@ server {
     add_header X-Content-Type-Options "nosniff" always;
     add_header X-XSS-Protection "1; mode=block" always;
 
-    # Static asset caching
-    location ~* \.(css|js|png|jpg|jpeg|gif|ico|svg|woff2?)$ {
+    # Long-cache truly static, versioned assets (images, fonts)
+    location ~* \.(png|jpg|jpeg|gif|ico|svg|woff2?)$ {
         expires 7d;
         add_header Cache-Control "public, immutable";
+    }
+
+    # Code/content changes over time: cache briefly but always revalidate
+    # so updates (e.g. new topics, search feature) appear on the next reload
+    # instead of being pinned for 7 days by an "immutable" directive.
+    location ~* \.(js|css)$ {
+        add_header Cache-Control "no-cache, must-revalidate";
+    }
+
+    # Never cache the HTML entry point
+    location = /index.html {
+        add_header Cache-Control "no-cache, must-revalidate";
     }
 
     # SPA routing support (hash-based doesn't need this, but kept for future)
@@ -182,10 +194,22 @@ server {
     add_header X-Content-Type-Options "nosniff" always;
     add_header X-XSS-Protection "1; mode=block" always;
 
-    # Static asset caching
-    location ~* \.(css|js|png|jpg|jpeg|gif|ico|svg|woff2?)$ {
+    # Long-cache truly static, versioned assets (images, fonts)
+    location ~* \.(png|jpg|jpeg|gif|ico|svg|woff2?)$ {
         expires 7d;
         add_header Cache-Control "public, immutable";
+    }
+
+    # Code/content changes over time: cache briefly but always revalidate
+    # so updates (e.g. new topics, search feature) appear on the next reload
+    # instead of being pinned for 7 days by an "immutable" directive.
+    location ~* \.(js|css)$ {
+        add_header Cache-Control "no-cache, must-revalidate";
+    }
+
+    # Never cache the HTML entry point
+    location = /index.html {
+        add_header Cache-Control "no-cache, must-revalidate";
     }
 
     location / {
