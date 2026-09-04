@@ -1124,4 +1124,4 @@ logging.basicConfig(
   ]
 };
 
-module.exports = TOPIC_PYTHON_LANG;
+if (typeof module !== 'undefined' && module.exports) { module.exports = TOPIC_PYTHON_LANG; }

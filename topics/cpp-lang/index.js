@@ -792,4 +792,4 @@ perf script | stackcollapse-perf.pl | flamegraph.pl &gt; flamegraph.svg</code></
   ]
 };
 
-module.exports = TOPIC_CPP_LANG;
+if (typeof module !== 'undefined' && module.exports) { module.exports = TOPIC_CPP_LANG; }

@@ -1437,4 +1437,4 @@ WantedBy=multi-user.target</code></pre>
   ]
 };
 
-module.exports = TOPIC_GO_LANG;
+if (typeof module !== 'undefined' && module.exports) { module.exports = TOPIC_GO_LANG; }
