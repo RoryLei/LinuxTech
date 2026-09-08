@@ -258,6 +258,9 @@ body {
 .topics-main {
   flex: 1 1 auto;
   min-width: 0; /* allow the grid to shrink instead of overflowing */
+  /* Keep the content column at least as tall as the sidebar so selecting a
+     small category doesn't shrink the page and shift the sticky sidebar. */
+  min-height: calc(100vh - 2rem);
 }
 
 /* === Category Sidebar === */
@@ -266,6 +269,10 @@ body {
   position: sticky;
   top: 1rem;
   align-self: flex-start;
+  /* Pin the panel to the viewport and give it its own scroll, so switching
+     categories (which changes the results height) never moves the sidebar. */
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
 }
 
 .category-sidebar__title {
@@ -685,10 +692,16 @@ body {
     gap: 1rem;
   }
 
+  .topics-main {
+    min-height: 0; /* no viewport-height pinning on stacked mobile layout */
+  }
+
   .category-sidebar {
     flex: 1 1 auto;
     width: 100%;
     position: static;
+    max-height: none;
+    overflow-y: visible;
   }
 
   .category-sidebar__title {
