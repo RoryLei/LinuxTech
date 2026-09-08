@@ -3,6 +3,7 @@
  */
 const TOPIC_KERNEL_RCU = {
   "id": "kernel-rcu",
+  "category": "kernel",
   "icon": "🔄",
   "title": "Kernel RCU (Read-Copy-Update)",
   "description": "Deep dive into RCU — the Linux kernel lock-free read-side synchronization mechanism for scalable concurrent data access",

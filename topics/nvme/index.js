@@ -3,6 +3,7 @@
  */
 const TOPIC_NVME = {
   "id": "nvme",
+  "category": "hardware",
   "icon": "⚡",
   "title": "NVMe",
   "description": "Learn NVMe architecture, command sets, Linux nvme-cli tools, namespaces, and performance tuning",

@@ -3,6 +3,7 @@
  */
 const TOPIC_VPD = {
   "id": "vpd",
+  "category": "hardware",
   "icon": "🏷️",
   "title": "VPD (Vital Product Data)",
   "description": "Understand VPD, FRU data, and hardware identification — PCI VPD, SCSI VPD pages, IPMI FRU, and DMTF standards",

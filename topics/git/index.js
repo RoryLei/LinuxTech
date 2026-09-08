@@ -3,6 +3,7 @@
  */
 const TOPIC_GIT = {
   "id": "git",
+  "category": "tooling",
   "icon": "🔀",
   "title": "Git",
   "description": "Master Git version control — from repository setup to advanced collaboration, organized by workflow category",

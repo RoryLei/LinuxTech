@@ -8,6 +8,7 @@
   var mainEl = document.querySelector('main.container');
   var currentView = localStorage.getItem('linuxtech-view') || 'medium';
   var currentSort = localStorage.getItem('linuxtech-sort') || 'default';
+  var currentCategory = localStorage.getItem('linuxtech-category') || 'all';
   var currentQuery = ''; // transient keyword search (not persisted)
 
   // Sort mode definitions
@@ -195,27 +196,113 @@
     return sorted;
   }
 
+  // --- Category helpers ---
+
+  // The list of categories, or an empty list if categories.js didn't load.
+  function getCategories() {
+    return (typeof CATEGORIES !== 'undefined' && Array.isArray(CATEGORIES)) ? CATEGORIES : [];
+  }
+
+  // Resolve a topic's category id, falling back to 'other' when missing/unknown.
+  function topicCategory(topic) {
+    var known = getCategories().some(function (c) { return c.id === topic.category; });
+    return known ? topic.category : 'other';
+  }
+
+  // Count topics per category id across the full topic set.
+  function categoryCounts() {
+    var counts = {};
+    TOPICS.forEach(function (t) {
+      var cid = topicCategory(t);
+      counts[cid] = (counts[cid] || 0) + 1;
+    });
+    return counts;
+  }
+
+  // Filter a topic list to the current category ('all' = no filter).
+  function getCategoryTopics(topics) {
+    if (currentCategory === 'all') {
+      return topics;
+    }
+    return topics.filter(function (t) { return topicCategory(t) === currentCategory; });
+  }
+
+  // Human-readable label for the active category.
+  function currentCategoryLabel() {
+    if (currentCategory === 'all') {
+      return 'All Topics';
+    }
+    var cat = getCategories().find(function (c) { return c.id === currentCategory; });
+    return cat ? cat.label : 'Topics';
+  }
+
+  // --- Build the category sidebar ---
+  function buildSidebarHTML() {
+    var counts = categoryCounts();
+    var cats = getCategories();
+
+    function item(id, icon, label, count) {
+      var active = (id === currentCategory);
+      return '<li>' +
+        '<button type="button" class="category-item' + (active ? ' category-item--active' : '') + '" ' +
+          'data-category="' + escapeAttr(id) + '" ' +
+          (active ? 'aria-current="true" ' : '') +
+          'aria-label="' + escapeAttr(label) + ', ' + count + ' topics">' +
+          '<span class="category-item__icon" aria-hidden="true">' + icon + '</span>' +
+          '<span class="category-item__label">' + label + '</span>' +
+          '<span class="category-item__count" aria-hidden="true">' + count + '</span>' +
+        '</button>' +
+      '</li>';
+    }
+
+    var lis = item('all', '&#128218;', 'All Topics', TOPICS.length);
+    cats.forEach(function (c) {
+      var n = counts[c.id] || 0;
+      if (n === 0) { return; } // hide empty categories
+      lis += item(c.id, c.icon, c.label, n);
+    });
+
+    return '<aside class="category-sidebar" aria-label="Topic categories">' +
+      '<h2 class="category-sidebar__title">Categories</h2>' +
+      '<ul class="category-list">' + lis + '</ul>' +
+    '</aside>';
+  }
+
   // --- Render just the results area (grid + count/empty state) ---
   //     Kept separate from the toolbar so typing doesn't rebuild the input
   //     and lose focus/cursor position.
   function buildResultsHTML() {
-    var topics = getFilteredTopics(getSortedTopics());
+    // Apply category filter first, then keyword search, then sort.
+    var inCategory = getCategoryTopics(getSortedTopics());
+    var topics = getFilteredTopics(inCategory);
     var q = currentQuery.trim();
+
+    // Heading: which category is being shown + how many topics.
+    var headingHTML = '<div class="results-heading">' +
+      '<h2 class="results-heading__title">' + escapeAttr(currentCategoryLabel()) + '</h2>' +
+      '<span class="results-heading__count">' + topics.length +
+        ' topic' + (topics.length === 1 ? '' : 's') + '</span>' +
+    '</div>';
 
     var countHTML = '';
     if (q) {
+      var scope = currentCategory === 'all' ? '' : ' in ' + escapeAttr(currentCategoryLabel());
       countHTML = '<p class="search-count" role="status" aria-live="polite">' +
         topics.length + ' result' + (topics.length === 1 ? '' : 's') +
-        ' for &ldquo;' + escapeAttr(q) + '&rdquo;</p>';
+        ' for &ldquo;' + escapeAttr(q) + '&rdquo;' + scope + '</p>';
     }
 
     if (topics.length === 0) {
-      return countHTML +
+      var emptyMsg = q
+        ? 'No topics match &ldquo;' + escapeAttr(q) + '&rdquo;' +
+            (currentCategory === 'all' ? '' : ' in ' + escapeAttr(currentCategoryLabel()))
+        : 'No topics in this category yet';
+      return headingHTML + countHTML +
         '<section class="search-empty" role="status" aria-live="polite">' +
           '<span class="search-empty__icon" aria-hidden="true">&#128269;</span>' +
-          '<p class="search-empty__title">No topics match &ldquo;' + escapeAttr(q) + '&rdquo;</p>' +
-          '<p class="search-empty__hint">Try a different keyword, or ' +
-            '<button type="button" class="search-empty__reset" id="search-reset">clear the search</button>.</p>' +
+          '<p class="search-empty__title">' + emptyMsg + '</p>' +
+          '<p class="search-empty__hint">Try a different keyword or category, or ' +
+            '<button type="button" class="search-empty__reset" id="search-reset">reset filters</button>.</p>' +
         '</section>';
     }
 
@@ -224,13 +311,18 @@
       return buildCard(topic, currentView);
     }).join('');
 
-    return countHTML + '<section class="' + gridClass + '">' + cards + '</section>';
+    return headingHTML + countHTML + '<section class="' + gridClass + '">' + cards + '</section>';
   }
 
-  // --- Render topic grid page (toolbar + results) ---
+  // --- Render topic grid page (sidebar + toolbar + results) ---
   function buildTopicGridHTML() {
-    return buildViewToolbar() +
-      '<div id="results-area">' + buildResultsHTML() + '</div>';
+    return '<div class="topics-layout">' +
+      buildSidebarHTML() +
+      '<div class="topics-main">' +
+        buildViewToolbar() +
+        '<div id="results-area">' + buildResultsHTML() + '</div>' +
+      '</div>' +
+    '</div>';
   }
 
   // --- Render a single topic page ---
@@ -294,11 +386,39 @@
     refreshResults();
   }
 
+  // --- Reset both the keyword search and the category filter ---
+  function resetFilters() {
+    currentQuery = '';
+    setCategory('all');
+    var input = document.getElementById('search-input');
+    if (input) { input.value = ''; }
+  }
+
+  // --- Select a category and re-render (updates sidebar + results) ---
+  function setCategory(id) {
+    currentCategory = id;
+    localStorage.setItem('linuxtech-category', currentCategory);
+
+    // Update sidebar active state in place (no full router re-render needed).
+    var items = document.querySelectorAll('.category-item');
+    Array.prototype.forEach.call(items, function (btn) {
+      var active = btn.getAttribute('data-category') === currentCategory;
+      btn.classList.toggle('category-item--active', active);
+      if (active) {
+        btn.setAttribute('aria-current', 'true');
+      } else {
+        btn.removeAttribute('aria-current');
+      }
+    });
+
+    refreshResults();
+  }
+
   // --- Attach listeners that live inside the results area ---
   function attachResultsListeners() {
     var reset = document.getElementById('search-reset');
     if (reset) {
-      reset.addEventListener('click', clearSearch);
+      reset.addEventListener('click', resetFilters);
     }
   }
 
@@ -349,6 +469,14 @@
     if (searchClear) {
       searchClear.addEventListener('click', clearSearch);
     }
+
+    // Category sidebar buttons
+    var catButtons = document.querySelectorAll('.category-item');
+    Array.prototype.forEach.call(catButtons, function (btn) {
+      btn.addEventListener('click', function () {
+        setCategory(btn.getAttribute('data-category'));
+      });
+    });
 
     attachResultsListeners();
   }

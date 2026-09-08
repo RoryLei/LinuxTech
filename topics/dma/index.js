@@ -3,6 +3,7 @@
  */
 const TOPIC_DMA = {
   "id": "dma",
+  "category": "drivers",
   "icon": "🔀",
   "title": "DMA (Direct Memory Access)",
   "description": "How devices transfer data to and from memory without the CPU — coherent vs streaming mappings, scatter-gather, the kernel DMA API, and IOMMU integration",

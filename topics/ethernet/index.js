@@ -3,6 +3,7 @@
  */
 const TOPIC_ETHERNET = {
   "id": "ethernet",
+  "category": "networking",
   "icon": "🔀",
   "title": "Ethernet",
   "description": "Understand Ethernet fundamentals, frame structure, Linux NIC management, and driver architecture",

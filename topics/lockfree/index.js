@@ -3,6 +3,7 @@
  */
 const TOPIC_LOCKFREE = {
   "id": "lockfree",
+  "category": "kernel",
   "icon": "⚛️",
   "title": "Lock-Free Programming & Memory Barriers",
   "description": "Master Linux kernel lock-free techniques, atomic operations, memory ordering, RCU, and per-CPU data structures",

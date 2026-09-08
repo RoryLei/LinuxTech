@@ -3,6 +3,7 @@
  */
 const TOPIC_SHELL = {
   "id": "shell",
+  "category": "core",
   "icon": "💻",
   "title": "Shell Scripting",
   "description": "Write automation scripts to boost productivity",

@@ -3,6 +3,7 @@
  */
 const TOPIC_FILESYSTEM = {
   "id": "filesystem",
+  "category": "core",
   "icon": "📁",
   "title": "File System",
   "description": "Understand the Linux directory structure, file types, and mount mechanisms",

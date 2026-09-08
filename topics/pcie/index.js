@@ -3,6 +3,7 @@
  */
 const TOPIC_PCIE = {
   "id": "pcie",
+  "category": "hardware",
   "icon": "🔌",
   "title": "PCIe (PCI Express)",
   "description": "Understand PCIe architecture, configuration space, Linux subsystem tools, and AER error handling",

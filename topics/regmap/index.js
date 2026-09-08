@@ -3,6 +3,7 @@
  */
 const TOPIC_REGMAP = {
   "id": "regmap",
+  "category": "drivers",
   "icon": "🗺️",
   "title": "Regmap (Register Map API)",
   "description": "The Linux kernel's unified register-access abstraction — write a driver once and use it over I2C, SPI, MMIO or a custom bus, with caching, bulk operations, atomic bit updates and access validation",

@@ -3,6 +3,7 @@
  */
 const TOPIC_NETWORKING = {
   "id": "networking",
+  "category": "networking",
   "icon": "🌐",
   "title": "Network Management",
   "description": "Master IP configuration, firewall rules, and network debugging tools",

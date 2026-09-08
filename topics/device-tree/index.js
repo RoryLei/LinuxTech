@@ -3,6 +3,7 @@
  */
 const TOPIC_DEVICE_TREE = {
   "id": "device-tree",
+  "category": "drivers",
   "icon": "🌳",
   "title": "Device Tree (DTS)",
   "description": "Learn how Linux discovers hardware on ARM/RISC-V platforms via Device Tree — syntax, bindings, overlays, and debugging",

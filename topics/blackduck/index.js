@@ -3,6 +3,7 @@
  */
 const TOPIC_BLACKDUCK = {
   "id": "blackduck",
+  "category": "tooling",
   "icon": "🦆",
   "title": "Black Duck",
   "description": "Learn Software Composition Analysis (SCA) with Black Duck for open source security, license compliance, and SBOM generation",

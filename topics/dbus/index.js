@@ -3,6 +3,7 @@
  */
 const TOPIC_DBUS = {
   "id": "dbus",
+  "category": "services",
   "icon": "🚌",
   "title": "D-Bus",
   "description": "Learn the Linux desktop and system message bus — inter-process communication, services, and introspection",

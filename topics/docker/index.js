@@ -3,6 +3,7 @@
  */
 const TOPIC_DOCKER = {
   "id": "docker",
+  "category": "tooling",
   "icon": "🐳",
   "title": "Docker Containers",
   "description": "Learn containerized deployment, image management, and Compose orchestration",

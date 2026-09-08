@@ -3,6 +3,7 @@
  */
 const TOPIC_PACKAGES = {
   "id": "packages",
+  "category": "core",
   "icon": "📦",
   "title": "Package Management",
   "description": "Manage software packages using apt, yum, dnf, and more",

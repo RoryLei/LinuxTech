@@ -3,6 +3,7 @@
  */
 const TOPIC_SBOM = {
   "id": "sbom",
+  "category": "tooling",
   "icon": "📋",
   "title": "SBOM",
   "description": "Understand Software Bill of Materials — standards, formats, generation tools, regulatory requirements, and supply chain security",

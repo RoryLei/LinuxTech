@@ -3,6 +3,7 @@
  */
 const TOPIC_C_LANG = {
   "id": "c-lang",
+  "category": "languages",
   "icon": "🔧",
   "title": "C Programming",
   "description": "Master C for systems programming — pointers, memory management, kernel modules, and embedded development",

@@ -3,6 +3,7 @@
  */
 const TOPIC_EBPF = {
   "id": "ebpf",
+  "category": "kernel",
   "icon": "🔬",
   "title": "eBPF",
   "description": "Learn eBPF — safely run custom programs in the kernel for observability, networking, and security",

@@ -3,6 +3,7 @@
  */
 const TOPIC_RTC = {
   "id": "rtc",
+  "category": "hardware",
   "icon": "🕐",
   "title": "RTC (Real-Time Clock)",
   "description": "Learn how Linux manages hardware clocks, time synchronization, RTC drivers, and wake-from-suspend alarms",

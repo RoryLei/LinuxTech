@@ -3,6 +3,7 @@
  */
 const TOPIC_IO_URING = {
   "id": "io-uring",
+  "category": "io",
   "icon": "💫",
   "title": "io_uring",
   "description": "Master the Linux async I/O framework — submission/completion rings, zero-copy, polling, and high-performance storage/network",

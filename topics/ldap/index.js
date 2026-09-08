@@ -3,6 +3,7 @@
  */
 const TOPIC_LDAP = {
   "id": "ldap",
+  "category": "services",
   "icon": "📒",
   "title": "LDAP",
   "description": "Learn LDAP directory services, OpenLDAP setup, schema design, and Linux authentication integration",

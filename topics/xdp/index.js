@@ -3,6 +3,7 @@
  */
 const TOPIC_XDP = {
   "id": "xdp",
+  "category": "networking",
   "icon": "⚡",
   "title": "XDP (eXpress Data Path)",
   "description": "Learn high-performance packet processing at the Linux NIC driver level using eBPF and XDP",

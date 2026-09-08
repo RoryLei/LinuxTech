@@ -3,6 +3,7 @@
  */
 const TOPIC_GPIO = {
   "id": "gpio",
+  "category": "hardware",
   "icon": "⚡",
   "title": "GPIO",
   "description": "Control General Purpose I/O pins on Linux using libgpiod, character devices, and kernel drivers",

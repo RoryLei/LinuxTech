@@ -3,6 +3,7 @@
  */
 const TOPIC_PROCESS = {
   "id": "process",
+  "category": "core",
   "icon": "⚙️",
   "title": "Process Management",
   "description": "Learn how to monitor, control, and schedule system processes",

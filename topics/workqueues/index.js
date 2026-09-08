@@ -3,6 +3,7 @@
  */
 const TOPIC_WORKQUEUES = {
   "id": "workqueues",
+  "category": "kernel",
   "icon": "🔄",
   "title": "Workqueues & Threaded IRQs",
   "description": "Understand Linux deferred work mechanisms — workqueues, tasklets, softirqs, and threaded interrupt handlers",

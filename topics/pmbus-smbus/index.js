@@ -3,6 +3,7 @@
  */
 const TOPIC_PMBUS_SMBUS = {
   "id": "pmbus-smbus",
+  "category": "hardware",
   "icon": "🔋",
   "title": "PMBus & SMBus",
   "description": "Understand why PMBus and SMBus exist alongside I2C, their key differences, and Linux power management integration",

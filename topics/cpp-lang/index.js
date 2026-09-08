@@ -3,6 +3,7 @@
  */
 const TOPIC_CPP_LANG = {
   "id": "cpp-lang",
+  "category": "languages",
   "icon": "⚡",
   "title": "C++ Programming",
   "description": "Modern C++ for Linux systems — RAII, smart pointers, concurrency, and high-performance applications",

@@ -3,6 +3,7 @@
  */
 const TOPIC_SAS = {
   "id": "sas",
+  "category": "hardware",
   "icon": "💾",
   "title": "SAS (Serial Attached SCSI)",
   "description": "Learn SAS architecture, protocol layers, expander topology, and Linux SAS management",

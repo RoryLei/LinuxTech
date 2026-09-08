@@ -3,6 +3,7 @@
  */
 const TOPIC_EEVDF = {
   "id": "eevdf",
+  "category": "kernel",
   "icon": "⏱️",
   "title": "EEVDF Scheduler",
   "description": "The Linux kernel scheduler revolution — from CFS to EEVDF (Earliest Eligible Virtual Deadline First), the algorithm that replaced the Completely Fair Scheduler in Linux 6.6",

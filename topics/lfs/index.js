@@ -3,6 +3,7 @@
  */
 const TOPIC_LFS = {
   "id": "lfs",
+  "category": "core",
   "icon": "🧱",
   "title": "Linux From Scratch (LFS)",
   "description": "Building a complete, custom Linux system entirely from source code — the toolchain bootstrap, the cross-compilation dance, and how a bootable OS is assembled package by package",

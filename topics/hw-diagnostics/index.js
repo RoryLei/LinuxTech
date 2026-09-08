@@ -3,6 +3,7 @@
  */
 const TOPIC_HW_DIAGNOSTICS = {
   "id": "hw-diagnostics",
+  "category": "hardware",
   "icon": "🩺",
   "title": "Hardware Diagnostics",
   "description": "Detecting, correlating and acting on hardware faults in Linux servers — sysfs/procfs counters, RAS/EDAC/AER, thermal & SMART, and low-overhead live monitoring with eBPF",

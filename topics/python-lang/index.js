@@ -3,6 +3,7 @@
  */
 const TOPIC_PYTHON_LANG = {
   "id": "python-lang",
+  "category": "languages",
   "icon": "🐍",
   "title": "Python Programming",
   "description": "Python for Linux automation, scripting, system administration, and rapid prototyping",

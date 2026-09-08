@@ -3,6 +3,7 @@
  */
 const TOPIC_INFINIBAND = {
   "id": "infiniband",
+  "category": "networking",
   "icon": "🔗",
   "title": "InfiniBand",
   "description": "Learn InfiniBand architecture, RDMA verbs, subnet management, Linux OFED stack, and high-performance networking for HPC/AI",

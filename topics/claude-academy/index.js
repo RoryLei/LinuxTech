@@ -3,6 +3,7 @@
  */
 const TOPIC_CLAUDE_ACADEMY = {
   "id": "claude-academy",
+  "category": "tooling",
   "icon": "🎓",
   "title": "Claude Academy",
   "description": "Anthropic official free courses — AI Fluency (4D Framework), Claude API development, MCP, Claude Code, and prompt engineering",

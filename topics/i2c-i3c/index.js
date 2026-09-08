@@ -3,6 +3,7 @@
  */
 const TOPIC_I2C_I3C = {
   "id": "i2c-i3c",
+  "category": "hardware",
   "icon": "🔗",
   "title": "I2C & I3C",
   "description": "Master the I2C/I3C serial bus protocols, Linux kernel subsystem, and userspace tools",

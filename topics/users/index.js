@@ -3,6 +3,7 @@
  */
 const TOPIC_USERS = {
   "id": "users",
+  "category": "core",
   "icon": "👥",
   "title": "Users & Permissions",
   "description": "Manage accounts, groups, and sudo configuration",

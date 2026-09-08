@@ -3,6 +3,7 @@
  */
 const TOPIC_MMAP_ZEROCOPY = {
   "id": "mmap-zerocopy",
+  "category": "kernel",
   "icon": "🧠",
   "title": "Virtual Memory Mapping (mmap / Zero-Copy)",
   "description": "Understand Linux virtual memory, mmap system call, zero-copy techniques, DMA mapping, and kernel-user data transfer",

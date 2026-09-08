@@ -3,6 +3,7 @@
  */
 const TOPIC_SYSTEMD = {
   "id": "systemd",
+  "category": "core",
   "icon": "🔧",
   "title": "Systemd & Services",
   "description": "Manage system services, boot targets, and log queries",

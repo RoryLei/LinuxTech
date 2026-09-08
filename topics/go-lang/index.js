@@ -3,6 +3,7 @@
  */
 const TOPIC_GO_LANG = {
   "id": "go-lang",
+  "category": "languages",
   "icon": "🐹",
   "title": "Go Programming",
   "description": "Go for cloud-native tools, networking, concurrency, and systems utilities on Linux",
