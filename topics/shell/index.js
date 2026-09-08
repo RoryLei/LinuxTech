@@ -3,7 +3,7 @@
  */
 const TOPIC_SHELL = {
   "id": "shell",
-  "category": "core",
+  "category": "languages",
   "icon": "💻",
   "title": "Shell Scripting",
   "description": "Automate tasks with the Bash shell — variables, conditionals, loops, functions, text processing, and writing robust, safe scripts",
