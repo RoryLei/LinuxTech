@@ -256,7 +256,10 @@ body {
 }
 
 .topics-main {
-  flex: 1 1 auto;
+  /* flex-basis:0 + grow:1 makes this column claim ALL remaining width
+     regardless of how few cards it contains, so the sidebar stays pinned
+     to the left edge instead of drifting inward for small categories. */
+  flex: 1 1 0;
   min-width: 0; /* allow the grid to shrink instead of overflowing */
   /* Keep the content column at least as tall as the sidebar so selecting a
      small category doesn't shrink the page and shift the sticky sidebar. */
