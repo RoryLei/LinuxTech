@@ -6,7 +6,15 @@ const TOPIC_CPP_LANG = {
   "category": "languages",
   "icon": "⚡",
   "title": "C++ Programming",
-  "description": "Modern C++ for Linux systems — RAII, smart pointers, concurrency, and high-performance applications",
+  "description": "Modern C++ for Linux systems — classes & OOP, RAII & smart pointers, move semantics, exceptions, concurrency, templates & the STL, build systems, and profiling, with flow charts",
+  "keywords": [
+    "c++", "cpp", "modern c++", "c++20", "class", "oop", "constructor",
+    "destructor", "inheritance", "virtual", "polymorphism", "vtable",
+    "rule of five", "rule of zero", "raii", "smart pointer", "unique_ptr",
+    "shared_ptr", "weak_ptr", "move semantics", "rvalue", "std::move",
+    "exception", "noexcept", "stack unwinding", "template", "stl", "ranges",
+    "concept", "thread", "atomic", "mutex", "cmake", "gdb", "valgrind", "g++"
+  ],
   "sections": [
     {
       "id": "modern-cpp-fundamentals",
@@ -90,11 +98,86 @@ g++ -std=c++20 -Wall -Wextra -Wpedantic -fsanitize=address,undefined main.cpp -o
       `
     },
     {
+      "id": "classes-oop-rule-of-five",
+      "title": "Classes, OOP & the Rule of 0/3/5",
+      "content": `
+<h3>Classes, OOP & the Rule of 0/3/5</h3>
+<p>Classes are the heart of C++: they bundle data with the functions that operate on it and control an object's lifetime. Understanding constructors/destructors, inheritance, virtual dispatch, and the special member functions is essential before the RAII and move-semantics idioms make sense.</p>
+
+<h4>A class: members, constructors, destructor</h4>
+<pre><code>#include &lt;string&gt;
+#include &lt;iostream&gt;
+
+class Connection {
+    std::string host_;      // member variables (private by default)
+    int         port_;
+public:
+    // Constructor — runs when an object is created (member init list)
+    Connection(std::string host, int port)
+        : host_(std::move(host)), port_(port) {
+        std::cout &lt;&lt; "connect " &lt;&lt; host_ &lt;&lt; ":" &lt;&lt; port_ &lt;&lt; "\\n";
+    }
+
+    // Destructor — runs automatically when the object goes out of scope
+    ~Connection() { std::cout &lt;&lt; "disconnect " &lt;&lt; host_ &lt;&lt; "\\n"; }
+
+    int port() const { return port_; }   // 'const' method: doesn't modify *this\n};
+
+void use() {
+    Connection c{"10.0.0.1", 8080};   // constructor runs here
+    // ... use c ...
+}                                      // destructor runs here (scope exit)</code></pre>
+
+<h4>Inheritance & virtual dispatch (polymorphism)</h4>
+<p>A <code>virtual</code> function lets a base-class pointer call the <em>derived</em> class's override at runtime. This runtime selection is <strong>dynamic dispatch</strong>, implemented via a per-class <strong>vtable</strong>.</p>
+<pre><code>struct Shape {
+    virtual double area() const = 0;   // pure virtual -> Shape is ABSTRACT
+    virtual ~Shape() = default;        // virtual dtor: MUST have for base classes
+};
+struct Circle : Shape {
+    double r;
+    explicit Circle(double r) : r(r) {}
+    double area() const override { return 3.14159 * r * r; }   // 'override' checked
+};
+struct Square : Shape {
+    double s;
+    explicit Square(double s) : s(s) {}
+    double area() const override { return s * s; }
+};
+
+// One interface, many implementations:
+void print_area(const Shape& sh) { std::cout &lt;&lt; sh.area() &lt;&lt; "\\n"; }
+print_area(Circle{2.0});   // calls Circle::area
+print_area(Square{3.0});   // calls Square::area</code></pre>
+
+<h4>How a virtual call resolves (flow)</h4>
+<pre><code>shape-&gt;area()   where shape is a Shape* actually pointing to a Circle\n   │\n   ▼\nread the object's hidden VPTR  ── points to Circle's VTABLE\n   │\n   ▼\nlook up slot for area() in the vtable  ── holds &Circle::area\n   │\n   ▼\ncall through that pointer ─► Circle::area() runs\n#\n# Non-virtual calls are resolved at COMPILE time (no vtable). A virtual call\n# costs one extra indirection -- the price of runtime polymorphism.\n# A missing 'virtual ~Base()' + 'delete base_ptr' = UB (derived dtor skipped).</code></pre>
+
+<h4>The Rule of 0 / 3 / 5</h4>
+<p>If a class manages a resource, the compiler-generated copy/move/destroy may be wrong. The rule tells you which <strong>special member functions</strong> to define together.</p>
+<table>
+  <thead><tr><th>Rule</th><th>Define…</th><th>When</th></tr></thead>
+  <tbody>
+    <tr><td>Rule of 0</td><td>NONE (let the compiler generate them)</td><td>Members are already RAII types (string, vector, unique_ptr) — the ideal</td></tr>
+    <tr><td>Rule of 3</td><td>destructor, copy ctor, copy assign</td><td>You manage a raw resource and it's copyable (pre-C++11)</td></tr>
+    <tr><td>Rule of 5</td><td>+ move ctor, move assign</td><td>Modern: add move ops for efficient transfer</td></tr>
+  </tbody>
+</table>
+<pre><code>// Rule of 0 (PREFER this): members clean up themselves -> write no special fns\nclass Config {\n    std::string path_;\n    std::vector&lt;std::string&gt; lines_;   // all RAII -> nothing to write\n};\n\n// If you DO write one of {dtor, copy, move}, you generally need all five.\n// Delete what you don't want:\nclass Unique {\npublic:\n    Unique() = default;\n    Unique(const Unique&) = delete;              // non-copyable\n    Unique& operator=(const Unique&) = delete;\n    Unique(Unique&&) noexcept = default;         // but movable\n    Unique& operator=(Unique&&) noexcept = default;\n};</code></pre>
+      `
+    },
+    {
       "id": "raii-smart-pointers",
       "title": "RAII & Smart Pointers",
       "content": `
 <h3>RAII & Smart Pointers</h3>
 <p>Resource Acquisition Is Initialization (RAII) is the cornerstone of modern C++ resource management. By tying resource lifetime to object scope, RAII eliminates leaks for memory, file handles, sockets, and mutex locks — critical for long-running Linux daemons and system services.</p>
+
+<h4>The RAII lifetime (flow)</h4>
+<pre><code>enter scope { ... }\n   │\n   ▼\nCONSTRUCTOR runs ── ACQUIRE the resource (open fd, lock mutex, malloc)\n   │\n   ▼\n... use the resource ...\n   │\n   │  ANY exit path: normal return, early return, OR an EXCEPTION thrown\n   ▼\nleave scope\n   │\n   ▼\nDESTRUCTOR runs automatically ── RELEASE the resource (close, unlock, free)\n#\n# The release happens on EVERY path out of the scope -- including exceptions\n# (stack unwinding, see the Exceptions section). That's why RAII beats manual\n# cleanup: you can't forget it, and it's exception-safe by construction.</code></pre>
+
+<h4>Smart-pointer ownership at a glance</h4>
+<pre><code>  unique_ptr&lt;T&gt;   ──owns──►  T      (exactly ONE owner; freed when it dies)\n\n  shared_ptr&lt;T&gt; ─┐\n  shared_ptr&lt;T&gt; ─┼─owns──►  T      (ref-counted; freed when the LAST owner dies)\n  shared_ptr&lt;T&gt; ─┘\n\n  weak_ptr&lt;T&gt;   ┄┄observes┄►  T    (does NOT keep it alive; used to break cycles)</code></pre>
 
 <table>
   <thead>
@@ -510,6 +593,19 @@ Result&lt;std::string&gt; read_file(const std::string& path) {
 }
 
 // Move semantics — efficient resource transfer
+//
+// COPY: duplicate the resource (expensive for big buffers)
+//   src [==data==]        dst [==data==]   (two independent copies)
+//         │  copy every byte  ▲
+//         └───────────────────┘
+//
+// MOVE: STEAL the resource -- just transfer the pointer, no byte copy
+//   src [ ==data== ]      dst [ (empty) ]
+//         │ hand over the internal pointer ▼
+//   src [ (empty)  ]      dst [ ==data== ]   (src left valid-but-empty)
+//
+// std::move(x) casts x to an rvalue so the MOVE ctor/assignment is chosen.
+// Ideal for returning big objects and transferring unique ownership.
 class Buffer {
     std::vector&lt;char&gt; data_;
     std::string name_;
@@ -575,6 +671,34 @@ int main() {
 
     return 0;
 }</code></pre>
+      `
+    },
+    {
+      "id": "exceptions-error-propagation",
+      "title": "Exceptions & Error Propagation",
+      "content": `
+<h3>Exceptions & Error Propagation</h3>
+<p>Exceptions are C++'s mechanism for reporting errors that can't be handled locally. When something throws, the runtime <strong>unwinds the stack</strong> — destroying every local object along the way — until it finds a matching <code>catch</code>. This is why RAII and exceptions are two sides of the same coin: RAII guarantees cleanup <em>during</em> unwinding.</p>
+
+<h4>Throw / try / catch</h4>
+<pre><code>#include &lt;stdexcept&gt;\n#include &lt;iostream&gt;\n\ndouble divide(int a, int b) {\n    if (b == 0)\n        throw std::invalid_argument(\"division by zero\");   // throw an exception object\n    return double(a) / b;\n}\n\nint main() {\n    try {\n        std::cout &lt;&lt; divide(10, 0) &lt;&lt; \"\\n\";\n    } catch (const std::invalid_argument& e) {   // catch by const reference\n        std::cerr &lt;&lt; \"error: \" &lt;&lt; e.what() &lt;&lt; \"\\n\";\n    } catch (const std::exception& e) {          // base class catches the rest\n        std::cerr &lt;&lt; \"other: \" &lt;&lt; e.what() &lt;&lt; \"\\n\";\n    }\n}\n// Standard exception hierarchy: std::exception is the base; logic_error and\n// runtime_error derive from it. Always catch by REFERENCE (avoids slicing).</code></pre>
+
+<h4>Stack unwinding (flow)</h4>
+<pre><code>throw std::runtime_error(\"boom\")   inside deep()\n   │\n   ▼\nlook for a matching catch in deep()      ── none? keep unwinding\n   │  destroy deep()'s local objects (their DESTRUCTORS run) ← RAII cleanup\n   ▼\nunwind to caller mid()                    ── no catch? keep going\n   │  destroy mid()'s locals (destructors run)\n   ▼\nunwind to main()  ── has a matching catch ─► handler runs; stack is clean\n#\n# If NO handler is found anywhere, std::terminate() is called (abort).\n# Because every local's destructor runs while unwinding, RAII-held resources\n# (locks, fds, memory) are released automatically -> no leaks on the error path.</code></pre>
+
+<h4>noexcept & exception safety</h4>
+<pre><code>void cleanup() noexcept;   // promises NOT to throw; if it does -> terminate()\n// Destructors are implicitly noexcept -- NEVER let a destructor throw.\n// Move operations SHOULD be noexcept so containers (e.g. vector) can move\n// instead of copy during reallocation:\nBuffer(Buffer&&) noexcept;   // enables the fast path in std::vector growth\n\n// Exception-safety guarantees a function can offer:\n//   no-throw   : never throws (noexcept)\n//   strong     : if it throws, state is unchanged (commit-or-rollback)\n//   basic      : no leaks/invariants broken, but state may have changed</code></pre>
+
+<h4>Exceptions vs other strategies</h4>
+<table>
+  <thead><tr><th>Use</th><th>When</th></tr></thead>
+  <tbody>
+    <tr><td>Exceptions</td><td>Rare, unexpected, unrecoverable-locally errors</td></tr>
+    <tr><td>std::optional / expected</td><td>Expected \"maybe no value\" / \"value or error\" results</td></tr>
+    <tr><td>Error codes</td><td>Hot paths, C interop, or where exceptions are disabled</td></tr>
+  </tbody>
+</table>
+<pre><code># Note: some systems/embedded code builds with -fno-exceptions (kernel, many\n# HFT/embedded projects). There, use std::expected / error codes instead.\n# Either way, RAII still applies -- prefer it over manual cleanup everywhere.</code></pre>
       `
     },
     {
