@@ -12,7 +12,7 @@
   --color-surface: #161b22;
   --color-border: #30363d;
   --color-text: #f0f3f6;
-  --color-text-muted: #b1bac4;
+  --color-text-muted: #c2cbd4;
   --color-accent: #6cb6ff;
   --color-accent-hover: #a5d6ff;
   --radius: 12px;
@@ -184,6 +184,9 @@ body {
   border-radius: 3px;
   padding: 0 0.1em;
   font-weight: 700;
+  /* Non-color cue in addition to the highlight, for color-vision deficiency */
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 /* === Empty Search State === */
@@ -634,6 +637,20 @@ body {
   padding: 0.15rem 0.4rem;
   border-radius: 4px;
   font-size: 0.9em;
+}
+
+/* Accessibility: in-content links must not rely on color alone (color-vision
+   deficiency / low vision). Underline every link inside topic content. */
+.topic-section a {
+  color: var(--color-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.topic-section a:hover,
+.topic-section a:focus-visible {
+  color: var(--color-accent-hover);
+  text-decoration-thickness: 2px;
 }
 
 .topic-section pre {

@@ -59,32 +59,44 @@ const TOPIC_REGMAP = {
  * Colors chosen for high contrast / low-vision accessibility.
  */
 function regmapArchitectureSVG() {
+  // Color-vision-deficiency friendly: a SINGLE neutral-blue hue for every box
+  // (no red/green/yellow that CVD users can't distinguish). Layer identity is
+  // carried by a NUMBER badge + vertical order + text, never by hue alone.
   const stack = [
-    { label: "Device Driver",              fill: "#dbeafe", note: "Uses Regmap APIs (regmap_read/write, regmap_update_bits)" },
-    { label: "Regmap Core (regmap.c)",     fill: "#dcfce7", note: "Register map abstraction, caching, locking, debugfs" },
-    { label: "Regmap Bus Backends",        fill: "#fef9c3", note: "Bus-specific impl (regmap-i2c, regmap-spi, regmap-mmio)" },
-    { label: "Linux Bus Core",             fill: "#ede9fe", note: "I2C Core / SPI Core / Platform Bus" },
-    { label: "Bus Controller Driver",      fill: "#fee2e2", note: "I2C / SPI / Memory Controller" },
-    { label: "Hardware (Bus + Device)",    fill: "#e5e7eb", note: "Physical bus wires + slave device / memory" },
+    { label: "Device Driver",              note: "Uses Regmap APIs (regmap_read/write, regmap_update_bits)" },
+    { label: "Regmap Core (regmap.c)",     note: "Register map abstraction, caching, locking, debugfs" },
+    { label: "Regmap Bus Backends",        note: "Bus-specific impl (regmap-i2c, regmap-spi, regmap-mmio)" },
+    { label: "Linux Bus Core",             note: "I2C Core / SPI Core / Platform Bus" },
+    { label: "Bus Controller Driver",      note: "I2C / SPI / Memory Controller" },
+    { label: "Hardware (Bus + Device)",    note: "Physical bus wires + slave device / memory" },
   ];
-  const rowH = 46, gap = 10, boxW = 360, boxX = 30, noteX = 410;
+  const BOX_FILL = "#cfe3ff";     // one light blue for all boxes (CVD-safe)
+  const BOX_STROKE = "#1f2d3d";
+  const TEXT = "#0f172a";
+  const NOTE = "#c9d4e0";         // brighter note text for contrast on dark bg
+  const rowH = 46, gap = 12, boxW = 360, boxX = 40, noteX = 414, badgeR = 13;
   const height = stack.length * (rowH + gap) + 40;
   let rows = "";
   stack.forEach((s, i) => {
     const y = 20 + i * (rowH + gap);
+    const cy = y + rowH / 2;
     rows +=
       `<rect x="${boxX}" y="${y}" width="${boxW}" height="${rowH}" rx="6" ` +
-      `fill="${s.fill}" stroke="#334155" stroke-width="1.5"></rect>` +
-      `<text x="${boxX + boxW / 2}" y="${y + rowH / 2 + 5}" text-anchor="middle" ` +
-      `font-family="sans-serif" font-size="15" font-weight="600" fill="#0f172a">${s.label}</text>` +
-      `<text x="${noteX}" y="${y + rowH / 2 + 4}" font-family="sans-serif" font-size="12" ` +
-      `fill="#94a3b8">${s.note}</text>`;
+      `fill="${BOX_FILL}" stroke="${BOX_STROKE}" stroke-width="1.5"></rect>` +
+      // number badge on the left edge = the non-color identity cue
+      `<circle cx="${boxX}" cy="${cy}" r="${badgeR}" fill="${BOX_STROKE}"></circle>` +
+      `<text x="${boxX}" y="${cy + 4}" text-anchor="middle" font-family="sans-serif" ` +
+      `font-size="13" font-weight="700" fill="#ffffff">${i + 1}</text>` +
+      `<text x="${boxX + boxW / 2 + badgeR}" y="${cy + 5}" text-anchor="middle" ` +
+      `font-family="sans-serif" font-size="15" font-weight="600" fill="${TEXT}">${s.label}</text>` +
+      `<text x="${noteX}" y="${cy + 4}" font-family="sans-serif" font-size="12" ` +
+      `fill="${NOTE}">${s.note}</text>`;
     if (i < stack.length - 1) {
       const ay = y + rowH, ay2 = y + rowH + gap;
       const ax = boxX + boxW / 2;
       rows +=
-        `<line x1="${ax}" y1="${ay}" x2="${ax}" y2="${ay2}" stroke="#64748b" stroke-width="2"></line>` +
-        `<polygon points="${ax - 5},${ay2 - 6} ${ax + 5},${ay2 - 6} ${ax},${ay2}" fill="#64748b"></polygon>`;
+        `<line x1="${ax}" y1="${ay}" x2="${ax}" y2="${ay2}" stroke="#9db4cc" stroke-width="2"></line>` +
+        `<polygon points="${ax - 5},${ay2 - 6} ${ax + 5},${ay2 - 6} ${ax},${ay2}" fill="#9db4cc"></polygon>`;
     }
   });
   return (
