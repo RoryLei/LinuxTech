@@ -341,6 +341,54 @@ function ocpValidatorFlowSVG() {
   );
 }
 
+// Diagram 6: EFFICIENCY DECISION FLOW — choose the artifact-emission
+// strategy by measurement rate. Shape + text carry the branch meaning,
+// never colour.
+function ocpEfficiencyFlowSVG() {
+  const w = 760, boxW = 300, boxX = 230, h = 46, gap = 26;
+  let body = "";
+  const topY = 20;
+  // 1. start: a diagnostic produces measurements
+  body += ocpStepBox(boxX, topY, boxW, h, "diagnostic produces measurement values", 1);
+  body += ocpVArrow(boxX + boxW / 2, topY + h, topY + h + gap);
+  // 2. decision diamond: is the measurement rate high-frequency?
+  const diaCy = topY + h + gap + 44;
+  body += ocpDiamond(boxX + boxW / 2, diaCy, 150, 46, "high-frequency rate?");
+  // yes branch -> right -> aggregate
+  const yesX = 650, noX = 120;
+  body +=
+    `<line x1="${boxX + boxW / 2 + 150}" y1="${diaCy}" x2="${yesX}" y2="${diaCy}" stroke="${OCP_ARROW}" stroke-width="2"></line>` +
+    `<line x1="${yesX}" y1="${diaCy}" x2="${yesX}" y2="${diaCy + 50}" stroke="${OCP_ARROW}" stroke-width="2"></line>` +
+    `<polygon points="${yesX - 5},${diaCy + 44} ${yesX + 5},${diaCy + 44} ${yesX},${diaCy + 50}" fill="${OCP_ARROW}"></polygon>` +
+    `<text x="${boxX + boxW / 2 + 158}" y="${diaCy - 8}" font-family="sans-serif" font-size="11.5" fill="${OCP_NOTE}">yes</text>`;
+  // no branch -> left -> per-measurement
+  body +=
+    `<line x1="${boxX + boxW / 2 - 150}" y1="${diaCy}" x2="${noX}" y2="${diaCy}" stroke="${OCP_ARROW}" stroke-width="2"></line>` +
+    `<line x1="${noX}" y1="${diaCy}" x2="${noX}" y2="${diaCy + 50}" stroke="${OCP_ARROW}" stroke-width="2"></line>` +
+    `<polygon points="${noX - 5},${diaCy + 44} ${noX + 5},${diaCy + 44} ${noX},${diaCy + 50}" fill="${OCP_ARROW}"></polygon>` +
+    `<text x="${boxX + boxW / 2 - 180}" y="${diaCy - 8}" font-family="sans-serif" font-size="11.5" fill="${OCP_NOTE}">no</text>`;
+  const outY = diaCy + 50;
+  body += ocpBox(20, outY, 200, h, "emit per-measurement artifact", 2);
+  body += ocpBox(540, outY, 200, h, "aggregate: MeasurementSeries", 3);
+  body +=
+    `<text x="120" y="${outY + h + 18}" text-anchor="middle" font-family="sans-serif" ` +
+    `font-size="11" fill="${OCP_NOTE}">overhead negligible vs hardware latency</text>` +
+    `<text x="640" y="${outY + h + 18}" text-anchor="middle" font-family="sans-serif" ` +
+    `font-size="11" fill="${OCP_NOTE}">batch-like: one Start/End, many Elements</text>`;
+  // converge note
+  body +=
+    `<text x="380" y="${outY + h + 44}" text-anchor="middle" font-family="sans-serif" ` +
+    `font-size="11.5" fill="${OCP_NOTE}">both emit the same line-delimited JSON stream; the choice trades serialization cost against reporting granularity</text>`;
+  const vh = outY + h + 60;
+  return ocpFrame(
+    w, vh,
+    "Choosing an Emission Strategy by Measurement Rate",
+    "A diagnostic (1) asks whether its measurement rate is high-frequency; the no branch emits a per-measurement artifact (2), the yes branch aggregates into a MeasurementSeries (3) to amortize JSON serialization cost",
+    body,
+    "Decision flow chart for emission strategy. A diagnostic produces measurement values and reaches a diamond decision node asking whether the measurement rate is high-frequency. The no branch, where per-measurement overhead is negligible compared with hardware access latency, emits one JSON artifact per measurement. The yes branch, used for tight high-frequency loops such as memory-pattern tests, aggregates values into a MeasurementSeries with one start and end and many elements to amortize serialization cost. Both branches produce the same line-delimited JSON stream; the branch is chosen by text and node shape, never by colour."
+  );
+}
+
 const TOPIC_OCP_DIAG = {
   "id": "ocp-diag",
   "category": "tooling",
@@ -564,6 +612,59 @@ ${ocpExecutionFlowSVG()}
 <li><a href="https://github.com/opencomputeproject/ocp-diag-autoval" target="_blank">ocp-diag-autoval</a> &nbsp;|&nbsp; <a href="https://github.com/opencomputeproject/ocp-diag-ctam" target="_blank">ocp-diag-ctam</a></li>
 <li><a href="https://www.opencompute.org/projects/hardware-management" target="_blank">Open Compute Project — Hardware Management / Test &amp; Validation</a></li>
 </ul>`
+    },
+    {
+      "title": "9. Strengths & Limitations Analysis (優缺點分析)",
+      "content": `<p>This section is a deliberately <strong>balanced, technical</strong> appraisal of the OCP Diag framework — not a sales pitch. The framework solves real problems, but every design choice carries a cost, and knowing both sides is what lets a team decide whether to adopt it, wrap existing tools, or stay with a proprietary suite.</p>
+<h4>Strengths</h4>
+<table style="width:100%; border-collapse:collapse; margin:1rem 0;"><tr style="border-bottom:1px solid #30363d;"><th style="text-align:left; padding:0.5rem;">Strength</th><th style="text-align:left; padding:0.5rem;">Description</th></tr>
+<tr style="border-bottom:1px solid #30363d;"><td style="padding:0.5rem;"><strong>Standardized, machine-readable output</strong></td><td style="padding:0.5rem;">The JSON artifact stream (<code>SchemaVersion</code>, <code>TestRun</code>, <code>TestStep</code>, <code>Measurement</code>, <code>Diagnosis</code>) is a <em>common contract</em>. A lab engineer, an MES, and a fleet-scale ML repair model all read the same shape — versus ad-hoc text output that forces every consumer to write and maintain its own parser.</td></tr>
+<tr style="border-bottom:1px solid #30363d;"><td style="padding:0.5rem;"><strong>Life-cycle portability</strong></td><td style="padding:0.5rem;">The same diagnostic and the same output run unchanged from bringup through integration, reliability test, manufacturing, data-center operations and RMA / reverse logistics. The alternative is a separate suite — and separate output formats — per phase.</td></tr>
+<tr style="border-bottom:1px solid #30363d;"><td style="padding:0.5rem;"><strong>Incremental / streaming reporting</strong></td><td style="padding:0.5rem;">The <code>sequenceNumber</code> + <code>timestamp</code> on every artifact let long-running tests (memory burn-in, SSD endurance) emit partial results in real time: live monitoring, early-abort on first failure, and partial-result archival even if the host later crashes.</td></tr>
+<tr style="border-bottom:1px solid #30363d;"><td style="padding:0.5rem;"><strong>Reusable SDKs</strong></td><td style="padding:0.5rem;">The C++ and Python SDKs remove compliant-JSON boilerplate, so a diagnostic author writes hardware-exercise logic rather than hand-serializing the spec.</td></tr>
+<tr style="border-bottom:1px solid #30363d;"><td style="padding:0.5rem;"><strong>Extensibility without breakage</strong></td><td style="padding:0.5rem;">The <code>Extension</code> artifact and <code>Metadata</code> let a vendor add proprietary fields without violating the contract — consumers that do not understand the extension simply ignore it.</td></tr>
+<tr><td style="padding:0.5rem;"><strong>Open governance</strong></td><td style="padding:0.5rem;">Maintained in the open under the Open Compute Project, so there is no single-vendor lock-in and the spec is community-reviewed and public.</td></tr></table>
+<p>The through-line of the strengths is <em>leverage</em>: fixing one output contract lets a single diagnostic effort be reused across every life-cycle stage and consumed by everything from a bench console to a fleet ML model. The streaming design turns multi-hour tests from opaque black boxes into observable processes, and the SDK plus <code>Extension</code> model keeps the barrier to writing a compliant diagnostic low while still allowing vendor-specific data. These benefits compound at scale — the larger the fleet and the more partners in the supply chain, the more a shared, machine-readable contract pays off.</p>
+<h4>Limitations</h4>
+<table style="width:100%; border-collapse:collapse; margin:1rem 0;"><tr style="border-bottom:1px solid #30363d;"><th style="text-align:left; padding:0.5rem;">Limitation</th><th style="text-align:left; padding:0.5rem;">Description</th></tr>
+<tr style="border-bottom:1px solid #30363d;"><td style="padding:0.5rem;"><strong>Adoption barrier</strong></td><td style="padding:0.5rem;">An existing proprietary diagnostic suite needs non-trivial re-instrumentation or wrapping to become compliant. The <code>ocp-diag-memtester</code> wrapper — which uses SLY to parse <code>memtester</code>'s runtime text into OCP artifacts — shows both the solution and its cost: someone has to build and maintain that translation layer.</td></tr>
+<tr style="border-bottom:1px solid #30363d;"><td style="padding:0.5rem;"><strong>Schema rigidity vs expressiveness</strong></td><td style="padding:0.5rem;">The fixed artifact types (<code>Measurement</code>, <code>Diagnosis</code>, <code>Error</code>, <code>Log</code>, <code>File</code>, <code>Extension</code>) cover the common cases, but edge cases — multi-dimensional measurements, correlated failure clusters, conditional / branching test-step flows — get shoehorned into <code>Extension</code> / <code>Metadata</code>, which quietly erodes the standardization benefit the spec exists to provide.</td></tr>
+<tr style="border-bottom:1px solid #30363d;"><td style="padding:0.5rem;"><strong>Tooling maturity</strong></td><td style="padding:0.5rem;">AutoVal and CTAM exist, but the surrounding ecosystem is young next to established proprietary frameworks such as NI TestStand or Keysight PathWave. IDE / debugger integration, out-of-the-box GUI dashboards, and ready-made analytics are limited — teams often build their own.</td></tr>
+<tr style="border-bottom:1px solid #30363d;"><td style="padding:0.5rem;"><strong>Validator model simplicity</strong></td><td style="padding:0.5rem;">Validators do per-measurement limit checks (<code>LESS_THAN</code>, <code>EQUAL</code>, <code>REGEX_MATCH</code> and so on) but offer no native cross-measurement correlation, multi-variate pass/fail, or statistical-process-control rules. Any such logic lives downstream, outside the spec.</td></tr>
+<tr style="border-bottom:1px solid #30363d;"><td style="padding:0.5rem;"><strong>Ecosystem fragmentation risk</strong></td><td style="padding:0.5rem;">Multiple SDK languages, independently maintained compliant diagnostics, and vendor <code>Extension</code>s together create room for subtle incompatibilities unless schema versioning is applied strictly.</td></tr>
+<tr><td style="padding:0.5rem;"><strong>Documentation &amp; community size</strong></td><td style="padding:0.5rem;">The specification itself is thorough, but tutorials, worked examples beyond the quickstart, and active community channels are sparse relative to mainstream test frameworks — the learning curve is steeper than the spec's quality alone would suggest.</td></tr></table>
+<p>The limitations share a root cause: the value of a standard comes from everyone agreeing to the same fixed shape, and that same fixity is what makes unusual requirements awkward and migration expensive. The <code>Extension</code> escape hatch keeps the framework usable for edge cases, but every use of it is a small retreat from standardization. The young tooling and thin documentation are maturity problems that time can fix; the schema-rigidity and simple-validator trade-offs are more fundamental, and a team with heavy multi-variate or SPC analysis needs should expect to build that layer themselves on top of the stream rather than find it in the spec.</p>
+<h4>Reading the trade-off</h4>
+<p>Net, OCP Diag is strongest where <em>breadth and scale</em> dominate — many partners, many life-cycle stages, large fleets — and weakest where a single team needs deep, specialized analysis inside a mature turnkey tool. Adoption is rarely all-or-nothing: wrapping one high-value diagnostic (as the memtester example does) is a common, low-risk first step that proves the contract before a broader migration.</p>`
+    },
+    {
+      "title": "10. Efficiency & Performance Analysis (效率分析)",
+      "content": `<p>Structured output is not free. Every <code>Measurement</code>, <code>Diagnosis</code> and <code>Log</code> is a full JSON object carrying schema fields, a <code>timestamp</code> and a <code>sequenceNumber</code>. This section looks at where that cost actually bites, where it is negligible, and how the spec's own features let you manage it.</p>
+<h4>Where the overhead comes from</h4>
+<ul>
+<li><strong>JSON serialization per artifact.</strong> Consider a tight C diagnostic walking memory and checking patterns at <em>millions of addresses per second</em>. If it serialized one JSON <code>Measurement</code> per address, the formatting plus the stream writes would dominate — the diagnostic would spend more time producing output than exercising hardware. Compare this to a binary protocol or even a bare exit code, where emitting a result is almost free.</li>
+<li><strong>Streaming vs batch I/O.</strong> Streaming (one line per artifact, flushed as it goes) buys real-time observability but costs a serialization step and an I/O syscall per artifact. A single batched report at the end is far cheaper on I/O but loses incremental reporting entirely. The spec's <code>MeasurementSeries</code> (a <code>MeasurementSeriesStart</code>, many lightweight <code>MeasurementSeriesElement</code>s, then a <code>MeasurementSeriesEnd</code>) is the middle ground: batch-like semantics <em>within</em> the live stream, so you keep observability without a full artifact envelope per sample.</li>
+<li><strong>SDK abstraction cost.</strong> The SDKs add function calls, object construction and serialization over raw I/O. In C++ (compiled, with zero-copy or fast JSON libraries such as nlohmann/json or simdjson) that overhead is small. In Python (interpreted, a <code>json.dumps</code> per artifact) it is measurable inside a tight loop. It matters for high-frequency measurement diagnostics; it is noise for I/O- or hardware-bound subsystem tests.</li>
+</ul>
+<h4>Comparison of output approaches</h4>
+<table style="width:100%; border-collapse:collapse; margin:1rem 0;"><tr style="border-bottom:1px solid #30363d;"><th style="text-align:left; padding:0.5rem;">Approach</th><th style="text-align:left; padding:0.5rem;">Serialization overhead</th><th style="text-align:left; padding:0.5rem;">Structure</th><th style="text-align:left; padding:0.5rem;">Trade-off</th></tr>
+<tr style="border-bottom:1px solid #30363d;"><td style="padding:0.5rem;"><strong>Plain text / log</strong></td><td style="padding:0.5rem;">Very low</td><td style="padding:0.5rem;">None</td><td style="padding:0.5rem;">Cheapest to emit, but every consumer writes a custom, fragile parser</td></tr>
+<tr style="border-bottom:1px solid #30363d;"><td style="padding:0.5rem;"><strong>OCP JSON</strong></td><td style="padding:0.5rem;">Moderate</td><td style="padding:0.5rem;">Rich, self-describing</td><td style="padding:0.5rem;">Human-inspectable and standardized; heavier per artifact than binary</td></tr>
+<tr style="border-bottom:1px solid #30363d;"><td style="padding:0.5rem;"><strong>Binary / protobuf</strong></td><td style="padding:0.5rem;">Low</td><td style="padding:0.5rem;">Rich (schema)</td><td style="padding:0.5rem;">Smaller and faster than JSON, but not human-readable and the schema must be distributed to every consumer</td></tr>
+<tr><td style="padding:0.5rem;"><strong>XML</strong></td><td style="padding:0.5rem;">High</td><td style="padding:0.5rem;">Rich, verbose</td><td style="padding:0.5rem;">Most verbose of the four — larger payloads and heavier parsing</td></tr></table>
+<p>OCP's choice of line-delimited JSON is a deliberate midpoint: more overhead than raw text or binary, but human-inspectable, self-describing, and parseable one line at a time without a full-document reader. Being line-delimited is itself an efficiency feature — a consumer processes each artifact as a single line and never has to buffer and parse one giant document.</p>
+<h4>Scaling across a fleet</h4>
+<p>Running the same diagnostic across thousands of hosts does <em>not</em> stress the spec — each host serializes its own output independently. The bottleneck moves to <strong>ingestion</strong>: parsing thousands of concurrent JSON streams on the collection side. Line-delimited JSON helps directly (process per line, no whole-document parse), and the usual answer is event-stream ingestion — pipelines built on Kafka, Fluentd or similar — that treat each artifact line as an event. The spec scales because the per-host cost is bounded and the aggregation is a solved data-engineering problem.</p>
+<h4>Decision: how to emit by measurement rate</h4>
+<p>The practical lever a diagnostic author controls is <em>granularity</em>. The flow chart below captures the rule of thumb: aggregate only when the measurement rate is high enough that per-artifact serialization would compete with the hardware access itself.</p>
+${ocpEfficiencyFlowSVG()}
+<h4>Practical guidance</h4>
+<ul>
+<li>For the <strong>vast majority</strong> of hardware validation — boot checks, peripheral probes, firmware-version queries, moderate sensor sweeps — the JSON overhead is negligible next to the hardware access latency it is reporting on. Emit a per-measurement artifact and keep the code simple.</li>
+<li>It <strong>only</strong> matters for ultra-high-frequency measurement loops, such as memory-pattern tests running at millions of operations per second. There, do not emit one artifact per address: aggregate into a <code>MeasurementSeries</code>, or emit summary <code>Measurement</code>s (min / max / fail-count over a window) instead of per-sample ones.</li>
+<li>Pick the SDK to match the loop: a C++ diagnostic for the tightest high-frequency paths, Python where author velocity matters more than per-artifact cost.</li>
+</ul>
+<p>In short, the efficiency question is almost always answered by granularity, not by abandoning the format. The spec gives you the tools — <code>MeasurementSeries</code>, summary measurements, line-delimited streaming — to keep structured, standardized output affordable even in the demanding cases.</p>`
     }
   ]
 };
