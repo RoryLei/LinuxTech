@@ -1,6 +1,261 @@
 /**
  * Topic: EEVDF (Earliest Eligible Virtual Deadline First)
  */
+
+/* Accessible palette + SVG helpers. These MUST be declared ABOVE
+ * `const TOPIC_EEVDF = {` because the topic object literal is evaluated at
+ * load time and its section `content` strings call these helpers. A const
+ * or function referenced before its declaration throws a temporal-dead-zone
+ * ReferenceError at load that blanks the whole site, and `node --check`
+ * does NOT catch it — only an actual runtime execution does.
+ *
+ * ACCESSIBILITY (site owner is 色弱 / color-vision-deficient): NO color
+ * carries meaning. ONE neutral-blue hue for every box (#cfe3ff fill,
+ * #1f2d3d stroke) on a #0d1117 background. Identity/meaning is carried by
+ * NUMBER badges + position + shape (diamond = decision) + arrows + text,
+ * never by hue. Eligible vs ineligible and pick vs skip are shown by text,
+ * label, and shape only. */
+const EEVDF_BOX_FILL = "#cfe3ff";
+const EEVDF_BOX_STROKE = "#1f2d3d";
+const EEVDF_TEXT = "#0f172a";
+const EEVDF_NOTE = "#c9d4e0";
+const EEVDF_ARROW = "#9db4cc";
+const EEVDF_BG = "#0d1117";
+
+function eevdfBox(x, y, w, h, label, badge) {
+  const cy = y + h / 2;
+  const r = 13;
+  let s =
+    `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="6" ` +
+    `fill="${EEVDF_BOX_FILL}" stroke="${EEVDF_BOX_STROKE}" stroke-width="1.5"></rect>`;
+  if (badge !== undefined) {
+    s +=
+      `<circle cx="${x + r + 4}" cy="${cy}" r="${r}" fill="${EEVDF_BOX_STROKE}"></circle>` +
+      `<text x="${x + r + 4}" y="${cy + 4}" text-anchor="middle" font-family="sans-serif" ` +
+      `font-size="13" font-weight="700" fill="#ffffff">${badge}</text>`;
+  }
+  const tx = badge !== undefined ? x + r + 4 + (w - r - 4) / 2 : x + w / 2;
+  s +=
+    `<text x="${tx}" y="${cy + 5}" text-anchor="middle" font-family="sans-serif" ` +
+    `font-size="14" font-weight="600" fill="${EEVDF_TEXT}">${label}</text>`;
+  return s;
+}
+
+// A box with left-aligned text (used for wide flow-step boxes).
+function eevdfStepBox(x, y, w, h, label, badge) {
+  const cy = y + h / 2;
+  const r = 13;
+  let s =
+    `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="6" ` +
+    `fill="${EEVDF_BOX_FILL}" stroke="${EEVDF_BOX_STROKE}" stroke-width="1.5"></rect>`;
+  if (badge !== undefined) {
+    s +=
+      `<circle cx="${x + r + 4}" cy="${cy}" r="${r}" fill="${EEVDF_BOX_STROKE}"></circle>` +
+      `<text x="${x + r + 4}" y="${cy + 4}" text-anchor="middle" font-family="sans-serif" ` +
+      `font-size="13" font-weight="700" fill="#ffffff">${badge}</text>`;
+  }
+  s +=
+    `<text x="${x + (badge !== undefined ? r + 24 : 14)}" y="${cy + 4}" ` +
+    `font-family="sans-serif" font-size="12.5" fill="${EEVDF_TEXT}">${label}</text>`;
+  return s;
+}
+
+// A diamond decision node (shape, not color, carries the "gate" meaning).
+function eevdfDiamond(cx, cy, halfW, halfH, label) {
+  let s =
+    `<polygon points="${cx},${cy - halfH} ${cx + halfW},${cy} ${cx},${cy + halfH} ${cx - halfW},${cy}" ` +
+    `fill="${EEVDF_BOX_FILL}" stroke="${EEVDF_BOX_STROKE}" stroke-width="1.5"></polygon>`;
+  s +=
+    `<text x="${cx}" y="${cy + 4}" text-anchor="middle" font-family="sans-serif" ` +
+    `font-size="12" font-weight="600" fill="${EEVDF_TEXT}">${label}</text>`;
+  return s;
+}
+
+function eevdfVArrow(x, y1, y2) {
+  return (
+    `<line x1="${x}" y1="${y1}" x2="${x}" y2="${y2}" stroke="${EEVDF_ARROW}" stroke-width="2"></line>` +
+    `<polygon points="${x - 5},${y2 - 6} ${x + 5},${y2 - 6} ${x},${y2}" fill="${EEVDF_ARROW}"></polygon>`
+  );
+}
+
+function eevdfHArrow(x1, y, x2) {
+  const dir = x2 >= x1 ? 1 : -1;
+  return (
+    `<line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" stroke="${EEVDF_ARROW}" stroke-width="2"></line>` +
+    `<polygon points="${x2 - dir * 7},${y - 5} ${x2 - dir * 7},${y + 5} ${x2},${y}" fill="${EEVDF_ARROW}"></polygon>`
+  );
+}
+
+function eevdfFrame(viewW, viewH, title, subtitle, body, ariaLabel) {
+  return (
+    `<div style="overflow-x:auto; margin:1rem 0; padding:1rem; background:${EEVDF_BG}; ` +
+    `border:1px solid #30363d; border-radius:8px;">` +
+    `<div style="text-align:center; font-weight:700; font-size:1.05rem; color:#58a6ff; margin-bottom:0.25rem;">${title}</div>` +
+    `<div style="text-align:center; font-size:0.85rem; color:#8b949e; margin-bottom:0.75rem;">${subtitle}</div>` +
+    `<svg viewBox="0 0 ${viewW} ${viewH}" width="100%" role="img" aria-label="${ariaLabel}">${body}</svg>` +
+    `</div>`
+  );
+}
+
+/* Diagram A (section 3, most important): EEVDF task-selection FLOW CHART.
+ * Top-to-bottom numbered steps with the two key gates (eligible filter,
+ * earliest-deadline pick) drawn as DIAMOND decision shapes, and a right-
+ * side loop-back arrow returning to the next scheduling decision. */
+function eevdfSelectionFlowSVG() {
+  const w = 760, boxW = 470, boxX = 150, h = 44, gap = 26;
+  let body = "";
+  const topY = 20;
+
+  // Start node (rounded box, explicitly labeled as the trigger).
+  body += eevdfStepBox(boxX, topY, boxW, h, "Start: scheduling decision (tick / wakeup / task blocks)");
+  body += eevdfVArrow(boxX + boxW / 2, topY + h, topY + h + gap);
+
+  // Step 1
+  const y1 = topY + h + gap;
+  body += eevdfStepBox(boxX, y1, boxW, h, "Advance the virtual clock (by total weight of runnable tasks)", 1);
+  body += eevdfVArrow(boxX + boxW / 2, y1 + h, y1 + h + gap);
+
+  // Step 2 — eligible filter GATE, drawn as a diamond.
+  const y2 = y1 + h + gap;
+  const dH = 56;
+  const dcx = boxX + boxW / 2;
+  const dcy = y2 + dH / 2;
+  body += eevdfDiamond(dcx, dcy, 240, dH / 2, "");
+  body +=
+    `<text x="${dcx}" y="${dcy - 4}" text-anchor="middle" font-family="sans-serif" ` +
+    `font-size="12" font-weight="700" fill="${EEVDF_TEXT}">(2) Eligible filter gate</text>` +
+    `<text x="${dcx}" y="${dcy + 13}" text-anchor="middle" font-family="sans-serif" ` +
+    `font-size="11.5" fill="${EEVDF_TEXT}">compute lag; keep tasks with lag &gt;= 0 as ELIGIBLE</text>`;
+  body += eevdfVArrow(dcx, y2 + dH, y2 + dH + gap);
+
+  // Step 3 — earliest-deadline pick GATE, drawn as a diamond.
+  const y3 = y2 + dH + gap;
+  const d2cy = y3 + dH / 2;
+  body += eevdfDiamond(dcx, d2cy, 240, dH / 2, "");
+  body +=
+    `<text x="${dcx}" y="${d2cy - 4}" text-anchor="middle" font-family="sans-serif" ` +
+    `font-size="12" font-weight="700" fill="${EEVDF_TEXT}">(3) Earliest-deadline pick gate</text>` +
+    `<text x="${dcx}" y="${d2cy + 13}" text-anchor="middle" font-family="sans-serif" ` +
+    `font-size="11.5" fill="${EEVDF_TEXT}">among ELIGIBLE, pick the EARLIEST virtual deadline</text>`;
+  body += eevdfVArrow(dcx, y3 + dH, y3 + dH + gap);
+
+  // Step 4
+  const y4 = y3 + dH + gap;
+  body += eevdfStepBox(boxX, y4, boxW, h, "Run it for up to its requested slice r", 4);
+  body += eevdfVArrow(boxX + boxW / 2, y4 + h, y4 + h + gap);
+
+  // Step 5
+  const y5 = y4 + h + gap;
+  body += eevdfStepBox(boxX, y5, boxW, h, "Charge CPU used; update lag/vruntime; recompute virtual deadline", 5);
+
+  // Loop-back arrow (right side) from step 5 up to the Start node.
+  const rbx = boxX + boxW + 34;
+  body +=
+    `<line x1="${boxX + boxW}" y1="${y5 + h / 2}" x2="${rbx}" y2="${y5 + h / 2}" stroke="${EEVDF_ARROW}" stroke-width="2"></line>` +
+    `<line x1="${rbx}" y1="${y5 + h / 2}" x2="${rbx}" y2="${topY + h / 2}" stroke="${EEVDF_ARROW}" stroke-width="2"></line>` +
+    `<line x1="${rbx}" y1="${topY + h / 2}" x2="${boxX + boxW}" y2="${topY + h / 2}" stroke="${EEVDF_ARROW}" stroke-width="2"></line>` +
+    `<polygon points="${boxX + boxW + 7},${topY + h / 2 - 5} ${boxX + boxW + 7},${topY + h / 2 + 5} ${boxX + boxW},${topY + h / 2}" fill="${EEVDF_ARROW}"></polygon>` +
+    `<text x="${rbx + 8}" y="${(topY + y5) / 2 + h / 2 - 8}" font-family="sans-serif" font-size="11.5" fill="${EEVDF_NOTE}">next</text>` +
+    `<text x="${rbx + 8}" y="${(topY + y5) / 2 + h / 2 + 8}" font-family="sans-serif" font-size="11.5" fill="${EEVDF_NOTE}">decision</text>`;
+
+  const vh = y5 + h + 16;
+  return eevdfFrame(
+    w, vh,
+    "EEVDF Task-Selection Flow Chart",
+    "A scheduling decision (tick / wakeup / block) advances the virtual clock (1), filters to ELIGIBLE tasks with lag >= 0 (2), picks the EARLIEST virtual deadline among them (3), runs it for slice r (4), then charges CPU and recomputes lag / deadline (5) before the next decision",
+    body,
+    "Flow chart of the EEVDF scheduling loop, read top to bottom. It starts at a scheduling decision triggered by a timer tick, a wakeup, or a task blocking. Step 1 advances the virtual clock by the total weight of runnable tasks. Step 2 is the eligible-filter gate, drawn as a diamond: it computes each task's lag and keeps only tasks whose lag is greater than or equal to zero as eligible. Step 3 is the earliest-deadline-pick gate, also a diamond: among the eligible tasks it selects the one with the earliest virtual deadline. Step 4 runs that task for up to its requested slice r. Step 5 charges the CPU time used and updates the task's lag, virtual runtime, and virtual deadline. A loop-back arrow then returns to the next scheduling decision."
+  );
+}
+
+/* Diagram B (section 2): lag / eligibility number-line + two example tasks
+ * showing smaller slice -> earlier deadline, larger slice -> later. */
+function eevdfLagEligibilitySVG() {
+  const w = 760;
+  let body = "";
+
+  // --- Lag number-line ---
+  const lineY = 70, x0 = 60, x1 = 700, threshX = 380;
+  body += `<text x="${x0}" y="34" font-family="sans-serif" font-size="13" font-weight="700" fill="${EEVDF_NOTE}">Lag number-line (eligibility threshold at lag = 0)</text>`;
+  body += eevdfHArrow(x0, lineY, x1);
+  // threshold marker
+  body +=
+    `<line x1="${threshX}" y1="${lineY - 22}" x2="${threshX}" y2="${lineY + 22}" stroke="${EEVDF_BOX_STROKE}" stroke-width="2"></line>` +
+    `<text x="${threshX}" y="${lineY - 28}" text-anchor="middle" font-family="sans-serif" font-size="12" font-weight="700" fill="${EEVDF_NOTE}">lag = 0 (exactly fair)</text>`;
+  // left region: lag < 0 -> NOT eligible yet
+  body +=
+    `<text x="${(x0 + threshX) / 2}" y="${lineY + 42}" text-anchor="middle" font-family="sans-serif" font-size="12.5" font-weight="700" fill="${EEVDF_NOTE}">lag &lt; 0 : ahead</text>` +
+    `<text x="${(x0 + threshX) / 2}" y="${lineY + 60}" text-anchor="middle" font-family="sans-serif" font-size="12" fill="${EEVDF_NOTE}">NOT eligible yet</text>`;
+  // right region: lag > 0 -> eligible
+  body +=
+    `<text x="${(threshX + x1) / 2}" y="${lineY + 42}" text-anchor="middle" font-family="sans-serif" font-size="12.5" font-weight="700" fill="${EEVDF_NOTE}">lag &gt; 0 : owed</text>` +
+    `<text x="${(threshX + x1) / 2}" y="${lineY + 60}" text-anchor="middle" font-family="sans-serif" font-size="12" fill="${EEVDF_NOTE}">ELIGIBLE (ran less than fair)</text>`;
+
+  // --- Two example tasks: deadline ordering by horizontal position ---
+  const taskY = 185, bH = 56, bW = 300;
+  body += `<text x="${x0}" y="${taskY - 14}" font-family="sans-serif" font-size="13" font-weight="700" fill="${EEVDF_NOTE}">Virtual deadline from requested slice (earlier = left = sooner)</text>`;
+  // badge 1: small slice -> earlier deadline (left)
+  body += eevdfBox(x0, taskY, bW, bH, "", 1);
+  body +=
+    `<text x="${x0 + 40}" y="${taskY + 22}" font-family="sans-serif" font-size="12.5" font-weight="700" fill="${EEVDF_TEXT}">small slice -&gt; EARLIER deadline</text>` +
+    `<text x="${x0 + 40}" y="${taskY + 40}" font-family="sans-serif" font-size="11.5" fill="${EEVDF_TEXT}">runs sooner / more often, short bursts</text>`;
+  // horizontal "earlier ... later" axis arrow between the two
+  body += eevdfHArrow(x0 + bW + 10, taskY + bH / 2, x0 + bW + 90);
+  body += `<text x="${x0 + bW + 50}" y="${taskY + bH / 2 - 10}" text-anchor="middle" font-family="sans-serif" font-size="11" fill="${EEVDF_NOTE}">later</text>`;
+  // badge 2: large slice -> later deadline (right)
+  const x2b = x0 + bW + 100;
+  body += eevdfBox(x2b, taskY, bW, bH, "", 2);
+  body +=
+    `<text x="${x2b + 40}" y="${taskY + 22}" font-family="sans-serif" font-size="12.5" font-weight="700" fill="${EEVDF_TEXT}">large slice -&gt; LATER deadline</text>` +
+    `<text x="${x2b + 40}" y="${taskY + 40}" font-family="sans-serif" font-size="11.5" fill="${EEVDF_TEXT}">runs less often, longer chunks</text>`;
+
+  const vh = taskY + bH + 20;
+  return eevdfFrame(
+    w, vh,
+    "Lag, Eligibility & Virtual Deadline",
+    "A task with lag >= 0 is ELIGIBLE (owed or exactly fair); lag < 0 means it got ahead and is not eligible yet. A smaller requested slice yields an EARLIER virtual deadline (task 1, left), a larger slice a LATER deadline (task 2, right)",
+    body,
+    "Two-part diagram. The top is a lag number-line with the eligibility threshold at lag equals zero. To the left of the threshold, lag less than zero means the task got ahead of its fair share and is not eligible yet. At the threshold, lag equals zero is exactly fair. To the right, lag greater than zero means the task is owed time and is eligible because it ran less than its fair share. The bottom shows two example task boxes. Task 1, on the left, has a small requested slice giving it an earlier virtual deadline, so it runs sooner and more often in short bursts. Task 2, on the right, has a large requested slice giving it a later virtual deadline, so it runs less often in longer chunks. A horizontal arrow from task 1 to task 2 marks the earlier-to-later ordering by position."
+  );
+}
+
+/* Diagram C (section 1): CFS vs EEVDF selection-rule, side-by-side panels. */
+function eevdfCfsVsEevdfSVG() {
+  const w = 760, panelW = 330, panelH = 150, pH = 70;
+  let body = "";
+  const topY = 24;
+  const leftX = 40, rightX = w - 40 - panelW;
+
+  // Panel 1: CFS
+  body += eevdfBox(leftX, topY, panelW, pH, "", 1);
+  body +=
+    `<text x="${leftX + 38}" y="${topY + 28}" font-family="sans-serif" font-size="13.5" font-weight="700" fill="${EEVDF_TEXT}">CFS (&lt;= 6.5)</text>` +
+    `<text x="${leftX + 38}" y="${topY + 48}" font-family="sans-serif" font-size="12" fill="${EEVDF_TEXT}">pick SMALLEST vruntime</text>` +
+    `<text x="${leftX + 38}" y="${topY + 64}" font-family="sans-serif" font-size="12" fill="${EEVDF_TEXT}">(the task most behind)</text>`;
+  body +=
+    `<text x="${leftX}" y="${topY + pH + 36}" font-family="sans-serif" font-size="11.5" fill="${EEVDF_NOTE}">One gate: who is furthest behind?</text>` +
+    `<text x="${leftX}" y="${topY + pH + 54}" font-family="sans-serif" font-size="11.5" fill="${EEVDF_NOTE}">Latency handled by heuristics / tunables.</text>`;
+
+  // Panel 2: EEVDF
+  body += eevdfBox(rightX, topY, panelW, pH, "", 2);
+  body +=
+    `<text x="${rightX + 38}" y="${topY + 24}" font-family="sans-serif" font-size="13.5" font-weight="700" fill="${EEVDF_TEXT}">EEVDF (&gt;= 6.6)</text>` +
+    `<text x="${rightX + 38}" y="${topY + 42}" font-family="sans-serif" font-size="12" fill="${EEVDF_TEXT}">among ELIGIBLE (lag &gt;= 0),</text>` +
+    `<text x="${rightX + 38}" y="${topY + 58}" font-family="sans-serif" font-size="12" fill="${EEVDF_TEXT}">pick EARLIEST virtual deadline</text>`;
+  body +=
+    `<text x="${rightX}" y="${topY + pH + 36}" font-family="sans-serif" font-size="11.5" fill="${EEVDF_NOTE}">Two gates: eligibility, then deadline.</text>` +
+    `<text x="${rightX}" y="${topY + pH + 54}" font-family="sans-serif" font-size="11.5" fill="${EEVDF_NOTE}">Fairness + latency in one rule.</text>`;
+
+  const vh = topY + panelH + 10;
+  return eevdfFrame(
+    w, vh,
+    "Selection Rule: CFS vs EEVDF",
+    "CFS (panel 1) picks the task with the smallest vruntime — the one most behind. EEVDF (panel 2) first filters to ELIGIBLE tasks (lag >= 0), then picks the earliest virtual deadline among them, unifying fairness and latency",
+    body,
+    "Side-by-side comparison of two selection rules in the single accessible blue style. Panel 1, on the left, is CFS for Linux 6.5 and earlier: it picks the task with the smallest virtual runtime, that is, the task most behind, using a single gate, and handles latency with separate heuristics and tunables. Panel 2, on the right, is EEVDF for Linux 6.6 and later: it first keeps only eligible tasks whose lag is greater than or equal to zero, then picks the earliest virtual deadline among them, using two gates to combine fairness and latency in one rule. The panels are distinguished by numbered badges, headings, and position, not by color."
+  );
+}
+
 const TOPIC_EEVDF = {
   "id": "eevdf",
   "category": "kernel",
@@ -17,15 +272,15 @@ const TOPIC_EEVDF = {
   "sections": [
     {
       "title": "1. From CFS to EEVDF",
-      "content": "<p><strong>EEVDF</strong> stands for <strong>Earliest Eligible Virtual Deadline First</strong>. Starting with <strong>Linux 6.6</strong> (released late 2023), the <strong>Completely Fair Scheduler (CFS)</strong> — which had served the Linux community for over 15 years — was retired, and the EEVDF scheduling algorithm, driven by <strong>Ingo Molnar</strong> and <strong>Peter Zijlstra</strong>, took over as the default scheduler for normal tasks (the <code>SCHED_NORMAL</code> / fair class).</p><h4>Why replace CFS at all?</h4><p>CFS was excellent at one thing: throughput fairness. It divided CPU time proportionally to task weight and generally kept every task's accumulated runtime balanced. But it had a persistent weakness: <strong>latency</strong>. CFS had no first-class notion of \"this task needs to run <em>soon</em>, even if briefly.\" Interactive and latency-sensitive tasks were served by heuristics and tunables (<code>sched_min_granularity</code>, <code>sched_wakeup_granularity</code>, GENTLE_FAIR_SLEEPERS, ...) that grew fragile and hard to reason about over the years.</p><pre><code># The core problem CFS could not express cleanly:\n#\n#   Task A: a batch compiler job   -> wants lots of CPU, doesn't care when\n#   Task B: an audio thread        -> wants tiny slices, but ON TIME\n#\n# CFS gives both \"fair\" total time, but B may wait too long between slices\n# and glitch. EEVDF lets B ask for a shorter latency target and honors it\n# WITHOUT giving B more than its fair share overall.</code></pre><h4>The headline idea</h4><ul><li><strong>CFS answered:</strong> \"who has received the least CPU so far?\" → pick that task (smallest <code>vruntime</code>).</li><li><strong>EEVDF answers:</strong> \"among tasks that are <em>eligible</em> (haven't gotten ahead of their fair share), who has the earliest <em>virtual deadline</em>?\" → pick that one.</li></ul><p>EEVDF unifies fairness <em>and</em> latency into a single, well-defined algorithm from academic literature (Stoica &amp; Abdel-Wahab, 1995), replacing a pile of heuristics with one coherent model.</p>"
+      "content": eevdfCfsVsEevdfSVG() + "<p><strong>EEVDF</strong> stands for <strong>Earliest Eligible Virtual Deadline First</strong>. Starting with <strong>Linux 6.6</strong> (released late 2023), the <strong>Completely Fair Scheduler (CFS)</strong> — which had served the Linux community for over 15 years — was retired, and the EEVDF scheduling algorithm, driven by <strong>Ingo Molnar</strong> and <strong>Peter Zijlstra</strong>, took over as the default scheduler for normal tasks (the <code>SCHED_NORMAL</code> / fair class).</p><h4>Why replace CFS at all?</h4><p>CFS was excellent at one thing: throughput fairness. It divided CPU time proportionally to task weight and generally kept every task's accumulated runtime balanced. But it had a persistent weakness: <strong>latency</strong>. CFS had no first-class notion of \"this task needs to run <em>soon</em>, even if briefly.\" Interactive and latency-sensitive tasks were served by heuristics and tunables (<code>sched_min_granularity</code>, <code>sched_wakeup_granularity</code>, GENTLE_FAIR_SLEEPERS, ...) that grew fragile and hard to reason about over the years.</p><pre><code># The core problem CFS could not express cleanly:\n#\n#   Task A: a batch compiler job   -> wants lots of CPU, doesn't care when\n#   Task B: an audio thread        -> wants tiny slices, but ON TIME\n#\n# CFS gives both \"fair\" total time, but B may wait too long between slices\n# and glitch. EEVDF lets B ask for a shorter latency target and honors it\n# WITHOUT giving B more than its fair share overall.</code></pre><h4>The headline idea</h4><ul><li><strong>CFS answered:</strong> \"who has received the least CPU so far?\" → pick that task (smallest <code>vruntime</code>).</li><li><strong>EEVDF answers:</strong> \"among tasks that are <em>eligible</em> (haven't gotten ahead of their fair share), who has the earliest <em>virtual deadline</em>?\" → pick that one.</li></ul><p>EEVDF unifies fairness <em>and</em> latency into a single, well-defined algorithm from academic literature (Stoica &amp; Abdel-Wahab, 1995), replacing a pile of heuristics with one coherent model.</p>"
     },
     {
       "title": "2. Core Concepts: Lag, Eligibility, Virtual Deadline",
-      "content": "<p>EEVDF rests on three tightly related ideas. Understanding them is understanding the whole scheduler.</p><h4>1. Virtual runtime & the fair share</h4><pre><code># Like CFS, each task accrues virtual runtime. In an ideal, perfectly fair\n# system, every runnable task would receive CPU time proportional to its\n# weight (derived from nice value). The scheduler tracks how far each task\n# is AHEAD of or BEHIND that ideal.</code></pre><h4>2. Lag — the fairness debt</h4><pre><code># lag = (fair share the task SHOULD have received) - (what it ACTUALLY got)\n#\n#   lag > 0  : task is OWED time  (it ran less than fair)  -> eligible\n#   lag < 0  : task got AHEAD     (it ran more than fair)  -> NOT eligible yet\n#   lag = 0  : exactly fair\n#\n# EEVDF's fairness guarantee is expressed directly in terms of bounded lag.\n# A task that overran is temporarily held back until time \"catches up\" and\n# its lag returns to >= 0.</code></pre><h4>3. Eligibility</h4><p>A task is <strong>eligible</strong> only when its lag is non-negative — i.e. it has not already consumed more than its fair share up to now. This is the \"Eligible\" in EEVDF. Ineligible tasks are simply skipped for selection until the virtual clock advances enough to make them eligible again.</p><h4>4. Virtual deadline</h4><pre><code># Each task requests a time slice of size 'r' (its request / slice length).\n# EEVDF assigns a virtual DEADLINE = virtual_eligible_time + (r / weight).\n#\n#   - A SMALLER requested slice  -> EARLIER deadline -> scheduled sooner,\n#     more often, in shorter bursts   (great for latency-sensitive tasks)\n#   - A LARGER requested slice   -> LATER deadline -> runs less often but\n#     in longer chunks               (great for throughput/batch tasks)</code></pre><h4>The selection rule</h4><p>Among all <strong>eligible</strong> tasks, EEVDF runs the one with the <strong>earliest virtual deadline</strong> — hence <em>Earliest Eligible Virtual Deadline First</em>. This single rule delivers proportional fairness (via eligibility/lag) and latency control (via the deadline computed from the requested slice).</p>"
+      "content": eevdfLagEligibilitySVG() + "<p>EEVDF rests on three tightly related ideas. Understanding them is understanding the whole scheduler.</p><h4>1. Virtual runtime & the fair share</h4><pre><code># Like CFS, each task accrues virtual runtime. In an ideal, perfectly fair\n# system, every runnable task would receive CPU time proportional to its\n# weight (derived from nice value). The scheduler tracks how far each task\n# is AHEAD of or BEHIND that ideal.</code></pre><h4>2. Lag — the fairness debt</h4><pre><code># lag = (fair share the task SHOULD have received) - (what it ACTUALLY got)\n#\n#   lag > 0  : task is OWED time  (it ran less than fair)  -> eligible\n#   lag < 0  : task got AHEAD     (it ran more than fair)  -> NOT eligible yet\n#   lag = 0  : exactly fair\n#\n# EEVDF's fairness guarantee is expressed directly in terms of bounded lag.\n# A task that overran is temporarily held back until time \"catches up\" and\n# its lag returns to >= 0.</code></pre><h4>3. Eligibility</h4><p>A task is <strong>eligible</strong> only when its lag is non-negative — i.e. it has not already consumed more than its fair share up to now. This is the \"Eligible\" in EEVDF. Ineligible tasks are simply skipped for selection until the virtual clock advances enough to make them eligible again.</p><h4>4. Virtual deadline</h4><pre><code># Each task requests a time slice of size 'r' (its request / slice length).\n# EEVDF assigns a virtual DEADLINE = virtual_eligible_time + (r / weight).\n#\n#   - A SMALLER requested slice  -> EARLIER deadline -> scheduled sooner,\n#     more often, in shorter bursts   (great for latency-sensitive tasks)\n#   - A LARGER requested slice   -> LATER deadline -> runs less often but\n#     in longer chunks               (great for throughput/batch tasks)</code></pre><h4>The selection rule</h4><p>Among all <strong>eligible</strong> tasks, EEVDF runs the one with the <strong>earliest virtual deadline</strong> — hence <em>Earliest Eligible Virtual Deadline First</em>. This single rule delivers proportional fairness (via eligibility/lag) and latency control (via the deadline computed from the requested slice).</p>"
     },
     {
       "title": "3. How EEVDF Picks the Next Task",
-      "content": "<h4>The algorithm in plain steps</h4><pre><code># On every scheduling decision (tick, wakeup, or task blocking):\n#\n# 1. Advance the virtual clock based on total weight of runnable tasks.\n# 2. Determine which tasks are ELIGIBLE now  (lag >= 0).\n# 3. Among eligible tasks, choose the one with the EARLIEST virtual deadline.\n# 4. Run it for up to its requested slice 'r'.\n# 5. Charge the CPU time used, update its lag/vruntime, recompute deadline.\n# 6. Repeat.</code></pre><h4>Worked intuition</h4><pre><code>   Three tasks, equal weight. Audio (B) asks for a small slice; the two\n   compilers (A, C) ask for large slices.\n\n   eligible?   deadline (earlier = sooner)\n   ┌──────┬───────────┬──────────────────────────┐\n   │ A    │  yes      │  late   (big slice)        │\n   │ B    │  yes      │  EARLY  (small slice) ◄──── picked: earliest deadline\n   │ C    │  yes      │  late   (big slice)        │\n   └──────┴───────────┴──────────────────────────┘\n\n   B runs its short slice, glitch-free, then yields. A and C still get\n   their full fair share over time because B's total CPU stays bounded by\n   its lag budget -- it just gets its time in smaller, more timely pieces.</code></pre><h4>Data structure</h4><pre><code># CFS kept an rbtree keyed by vruntime (\"who is furthest behind\").\n# EEVDF keeps runnable tasks in an augmented red-black tree that lets the\n# scheduler efficiently find the earliest-deadline task AMONG the eligible\n# subset. The augmentation stores the min virtual deadline of each subtree,\n# so selection stays O(log n).</code></pre><h4>Preemption</h4><pre><code># A newly-woken task that is eligible and has an earlier virtual deadline\n# than the running task can preempt it. Because latency-sensitive tasks\n# request small slices, they naturally get earlier deadlines and thus\n# timely preemption -- no separate wakeup-granularity heuristic needed.</code></pre>"
+      "content": eevdfSelectionFlowSVG() + "<h4>The algorithm in plain steps</h4><pre><code># On every scheduling decision (tick, wakeup, or task blocking):\n#\n# 1. Advance the virtual clock based on total weight of runnable tasks.\n# 2. Determine which tasks are ELIGIBLE now  (lag >= 0).\n# 3. Among eligible tasks, choose the one with the EARLIEST virtual deadline.\n# 4. Run it for up to its requested slice 'r'.\n# 5. Charge the CPU time used, update its lag/vruntime, recompute deadline.\n# 6. Repeat.</code></pre><h4>Worked intuition</h4><pre><code>   Three tasks, equal weight. Audio (B) asks for a small slice; the two\n   compilers (A, C) ask for large slices.\n\n   eligible?   deadline (earlier = sooner)\n   ┌──────┬───────────┬──────────────────────────┐\n   │ A    │  yes      │  late   (big slice)        │\n   │ B    │  yes      │  EARLY  (small slice) ◄──── picked: earliest deadline\n   │ C    │  yes      │  late   (big slice)        │\n   └──────┴───────────┴──────────────────────────┘\n\n   B runs its short slice, glitch-free, then yields. A and C still get\n   their full fair share over time because B's total CPU stays bounded by\n   its lag budget -- it just gets its time in smaller, more timely pieces.</code></pre><h4>Data structure</h4><pre><code># CFS kept an rbtree keyed by vruntime (\"who is furthest behind\").\n# EEVDF keeps runnable tasks in an augmented red-black tree that lets the\n# scheduler efficiently find the earliest-deadline task AMONG the eligible\n# subset. The augmentation stores the min virtual deadline of each subtree,\n# so selection stays O(log n).</code></pre><h4>Preemption</h4><pre><code># A newly-woken task that is eligible and has an earlier virtual deadline\n# than the running task can preempt it. Because latency-sensitive tasks\n# request small slices, they naturally get earlier deadlines and thus\n# timely preemption -- no separate wakeup-granularity heuristic needed.</code></pre>"
     },
     {
       "title": "4. CFS vs EEVDF — Side by Side",
