@@ -341,6 +341,28 @@
     '</section>';
   }
 
+  // --- Re-run <script> elements injected via innerHTML ---
+  //     Scripts set through innerHTML are inert and never execute. For topic
+  //     content that embeds an interactive <script> (e.g. the EEVDF animation),
+  //     re-create each script node so the browser runs it. No-op (and cheap)
+  //     for the other topics, which contain no scripts.
+  function activateEmbeddedScripts(container) {
+    try {
+      var scripts = container.querySelectorAll('script');
+      Array.prototype.forEach.call(scripts, function (old) {
+        var s = document.createElement('script');
+        for (var i = 0; i < old.attributes.length; i++) {
+          var a = old.attributes[i];
+          s.setAttribute(a.name, a.value);
+        }
+        s.textContent = old.textContent;
+        old.parentNode.replaceChild(s, old);
+      });
+    } catch (e) {
+      /* no-op: never let script activation break page rendering */
+    }
+  }
+
   // --- Handle view mode change ---
   function onViewChange(e) {
     currentView = e.target.value;
@@ -430,6 +452,7 @@
       var topic = TOPICS.find(function (t) { return t.id === hash; });
       if (topic) {
         mainEl.innerHTML = buildTopicPageHTML(topic);
+        activateEmbeddedScripts(mainEl);
         window.scrollTo({ top: 0, behavior: 'smooth' });
         return;
       }
