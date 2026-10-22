@@ -391,7 +391,7 @@ function ocpEfficiencyFlowSVG() {
 
 const TOPIC_OCP_DIAG = {
   "id": "ocp-diag",
-  "category": "tooling",
+  "category": "ocp",
   "icon": "🧪",
   "title": "OCP Test & Validation (Diag) Specification",
   "description": "The Open Compute Project's hardware Test & Validation / diagnostics framework and its structured JSON Output Specification v2.0 — software architecture of the producer SDKs, the TestRun/TestStep/Measurement/Diagnosis artifact model, the test runners (AutoVal, CTAM) and compliant diagnostics (SAT, memtester, pcicrawler, fio), with flow charts",

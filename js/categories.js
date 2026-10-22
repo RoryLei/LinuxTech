@@ -14,5 +14,6 @@ const CATEGORIES = [
   { id: 'languages', label: 'Programming Languages',  icon: '💻' },
   { id: 'services',  label: 'Services & Protocols',   icon: '🔗' },
   { id: 'tooling',   label: 'DevOps & Tooling',       icon: '🛠️' },
+  { id: 'ocp',       label: 'Open Compute Project',   icon: '🧪' },
   { id: 'other',     label: 'Other',                  icon: '📚' }
 ];
