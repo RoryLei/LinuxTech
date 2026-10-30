@@ -13,6 +13,31 @@
  * are kept conservative per the sources below (OCP OBMF project page +
  * the ocp-obmf GitHub wiki / charter). Content was rephrased in our own
  * words for licensing compliance.
+ *
+ * ---------------------------------------------------------------------
+ * ACCURACY REVIEW + ENRICHMENT NOTE (obmf-enrich task)
+ * Part A (accuracy): the existing 8 sections were verified against the
+ *   OCP OBMF sources and are accurate. Only correction made: the USB
+ *   device-class binding date was tightened from "v1.0, 2026" to the
+ *   verified "v1.0, dated April 10, 2026" (no more precise claim). No
+ *   invented wire-level opcodes / pin-outs / state names were present or
+ *   added; scope stays at the "defines X" level. Otherwise: none.
+ * Part B (enrichment added):
+ *   - Document & revision-history table + RDL (Register Description
+ *     Language) supplement note, in the final status section.
+ *   - AST1030 auxiliary management controller (AMC) role + AI-platform
+ *     fan-out angle (new section 8, with a new color-safe fan-out
+ *     diagram helper obmfAmcSVG declared ABOVE the topic object).
+ *   - Streaming Boot + Caliptra 2.x treatment (expanded section 7,
+ *     reinforced in section 8), framed as adjacent ecosystem.
+ *   - DMTF PMCI framing for MCTP/PLDM/SPDM + OCP NIC 3.0 cross-link
+ *     (section 4 primer).
+ *   - Ecosystem / who-is-driving note (Intel + Microsoft; ASPEED,
+ *     Lattice implementations; universal vendor-agnostic DC-SCM).
+ *   Added SPDM + Caliptra references and an "Oct 2026 spec list"
+ *   point-in-time caveat. Added ONE new section (8); the former
+ *   section 8 was renumbered to 9; references/status stays last.
+ * ---------------------------------------------------------------------
  */
 
 /* Accessible palette (declared BEFORE use so the SVG helpers below are
@@ -301,6 +326,50 @@ function obmfApplicabilitySVG() {
   );
 }
 
+// Diagram 5: PRIMARY BMC + AUXILIARY MANAGEMENT CONTROLLER (AMC) fan-out.
+// A primary BMC (badge 1) plus an auxiliary management controller (badge 2)
+// fan management out to several accelerators / peripheral modules. The
+// "many devices, one management fabric" idea is shown by count + position +
+// text, never by colour. Framed as an implementation example, not the spec.
+function obmfAmcSVG() {
+  const w = 760, vh = 300;
+  let body = "";
+  // Host / DC-SCM side
+  body += obmfBox(40, 40, 200, 48, "Primary BMC", 1);
+  body +=
+    `<text x="140" y="104" text-anchor="middle" font-family="sans-serif" font-size="10.5" ` +
+    `fill="${OBMF_NOTE}">on DC-SCM (e.g. AST2700)</text>`;
+  // AMC in the middle
+  body += obmfBox(300, 120, 200, 48, "Auxiliary mgmt controller (AMC)", 2);
+  body +=
+    `<text x="400" y="184" text-anchor="middle" font-family="sans-serif" font-size="10.5" ` +
+    `fill="${OBMF_NOTE}">extends reach (e.g. AST1030)</text>`;
+  // OBMF-ICP link primary BMC -> AMC
+  body += obmfHArrow(240, 64, 300);
+  body += obmfVArrow(300, 64, 120);
+  body +=
+    `<text x="270" y="56" text-anchor="middle" font-family="sans-serif" font-size="10" ` +
+    `fill="${OBMF_NOTE}">OBMF-ICP</text>`;
+  // Peripheral modules / accelerators fanned out from the AMC
+  const targets = ["Accelerator A", "Accelerator B", "Peripheral module C", "Peripheral module D"];
+  const boxW = 160, y = 236, xs = [20, 200, 390, 580];
+  targets.forEach((t, i) => {
+    const x = xs[i];
+    body += obmfBox(x, y, boxW, 44, t, i + 3);
+    body += obmfVArrow(x + boxW / 2 + 10, 168, y);
+  });
+  body +=
+    `<text x="400" y="212" text-anchor="middle" font-family="sans-serif" font-size="10.5" ` +
+    `fill="${OBMF_NOTE}">one management fabric fanned out to many accelerators / peripheral modules</text>`;
+  return obmfFrame(
+    w, vh,
+    "Primary BMC + Auxiliary Management Controller (AMC) — AI-platform fan-out",
+    "In a demonstrated architecture a primary BMC (1) on the DC-SCM works with an auxiliary management controller (2) that extends management out to many accelerators and peripheral modules (3-6). Dense accelerator / AI platforms have many devices to manage, so consolidating the fabric and fanning it out through an AMC scales better than per-device legacy sideband. Shown as an implementation example, not part of the spec",
+    body,
+    "Fan-out diagram. A primary BMC box, labelled as living on the DC-SCM, for example an AST2700, connects by an OBMF-ICP link to an auxiliary management controller, labelled AMC, for example an AST1030, which extends management reach. From the auxiliary management controller, downward arrows fan out to four devices arranged left to right: accelerator A, accelerator B, peripheral module C and peripheral module D. A caption states that one management fabric is fanned out to many accelerators and peripheral modules. Grouping and the many-device idea are conveyed by position, numbered badges and text, never by colour."
+  );
+}
+
 const TOPIC_OBMF = {
   "id": "obmf",
   "category": "ocp",
@@ -360,16 +429,16 @@ ${obmfStackSVG()}
       "title": "4. Transports & Bindings (USB, MCTP, PLDM)",
       "content": `<p>OBMF-ICP is deliberately <strong>physical-interface-agnostic</strong>: it is designed to ride over different <em>bindings</em> rather than being welded to one wire. Two bindings are defined or in progress.</p>
 <table style="width:100%; border-collapse:collapse; margin:1rem 0;"><tr style="border-bottom:1px solid #30363d;"><th style="text-align:left; padding:0.5rem;">Binding</th><th style="text-align:left; padding:0.5rem;">Document</th><th style="text-align:left; padding:0.5rem;">Status</th></tr>
-<tr style="border-bottom:1px solid #30363d;"><td style="padding:0.5rem;"><strong>USB device-class</strong></td><td style="padding:0.5rem;">Universal Serial Bus Device Class Specification for OBMF-ICP (v1.0, 2026)</td><td style="padding:0.5rem;">Published</td></tr>
+<tr style="border-bottom:1px solid #30363d;"><td style="padding:0.5rem;"><strong>USB device-class</strong></td><td style="padding:0.5rem;">Universal Serial Bus Device Class Specification for OBMF-ICP (v1.0, dated April 10, 2026)</td><td style="padding:0.5rem;">Published</td></tr>
 <tr><td style="padding:0.5rem;"><strong>DMTF MCTP</strong></td><td style="padding:0.5rem;">DSP0295: OBMF-ICP over MCTP Binding Specification</td><td style="padding:0.5rem;">Work-in-progress</td></tr></table>
-<p>Industry demos ran OBMF-ICP over USB — for example an ASPEED <strong>AST2700</strong> BMC paired with an <strong>AST1030</strong> auxiliary management controller — consolidating fragmented legacy interfaces into one high-speed USB connection. The MCTP binding (DSP0295) ties OBMF into the broader DMTF management stack.</p>
+<p>Industry demos ran OBMF-ICP over USB — for example an ASPEED <strong>AST2700</strong> BMC paired with an <strong>AST1030</strong> auxiliary management controller — consolidating fragmented legacy interfaces into one high-speed USB connection. The MCTP binding (DSP0295) ties OBMF into the broader DMTF management stack. The AST2700/AST1030 roles are expanded in the ecosystem section below as an implementation example, not as part of the specification.</p>
 <h4>A quick MCTP / PLDM primer</h4>
-<p>Both come from the <a href="https://www.dmtf.org/standards/pmci" target="_blank">DMTF PMCI</a> family and are the same stack referenced in the <em>OpenBMC</em> topic:</p>
+<p>MCTP, PLDM and SPDM all belong to the <a href="https://www.dmtf.org/standards/pmci" target="_blank">DMTF PMCI</a> (Platform Management Components Intercommunication) family — the same stack referenced in the <em>OpenBMC</em> topic:</p>
 <ul>
 <li><strong>MCTP (Management Component Transport Protocol)</strong> — a transport for management messages that can run over SMBus/I2C, PCIe or USB. It moves management traffic between components regardless of the underlying bus.</li>
 <li><strong>PLDM (Platform Level Data Model)</strong> — standardized data models for management (sensors, firmware update, BIOS attributes, and so on) layered on top of a transport like MCTP.</li>
 </ul>
-<p>The important point: OBMF <strong>reuses</strong> MCTP and PLDM rather than replacing them. OBMF-ICP can bind to MCTP as a transport and align with PLDM semantics, leveraging existing OCP and DMTF standards instead of reinventing them.</p>`
+<p>The important point: OBMF <strong>reuses</strong> this PMCI suite rather than replacing it. OBMF-ICP can bind to MCTP as a transport, align with PLDM semantics, and lean on SPDM for security — which is exactly what "leverages existing DMTF standards" means in the charter: it adopts the PMCI transport, data-model and security building blocks instead of inventing its own. OCP already draws broadly on PMCI elsewhere; the site's <em>OCP NIC</em> topic notes that OCP NIC 3.0 likewise leverages several PMCI standards, so OBMF is following an established OCP pattern.</p>`
     },
     {
       "title": "5. Design Requirements & Vendor Extensions",
@@ -400,13 +469,36 @@ ${obmfApplicabilitySVG()}
 <tr style="border-bottom:1px solid #30363d;"><td style="padding:0.5rem;"><strong>OpenBMC</strong></td><td style="padding:0.5rem;">The BMC firmware stack that runs on that module and would speak OBMF-ICP</td><td style="padding:0.5rem;"><em>OpenBMC</em></td></tr>
 <tr><td style="padding:0.5rem;"><strong>OBMF-ICP</strong></td><td style="padding:0.5rem;">Standardizes <em>how</em> the host and that BMC talk for boot, config and runtime management</td><td style="padding:0.5rem;">this topic</td></tr></table>
 <p>So OBMF-ICP replaces a pile of vendor-specific sideband interfaces with one consolidated, vendor-agnostic protocol that runs <em>across</em> the DC-SCM hardware and the OpenBMC software. Because it is physical-interface-agnostic and reusable for other devices, it also reaches beyond the BMC to PCIe and CXL cards (see the <em>CXL</em> topic).</p>
-<h4>Streaming Boot (adjacent capability)</h4>
-<p><strong>Streaming Boot</strong> is referenced as a related capability that OBMF requirements touch — streaming the host boot image, associated with the Caliptra root-of-trust ecosystem in industry demos. It is adjacent rather than part of OBMF-ICP proper, so we mention it without over-specifying: OBMF-ICP lists requirements relating to Streaming Boot alongside MHS, DC-SCM, MCTP and PLDM.</p>
+<h4>Streaming Boot &amp; Caliptra (adjacent ecosystem)</h4>
+<p><strong>Streaming Boot</strong> means delivering the host/platform boot image to a device by <em>streaming</em> it at boot time rather than reading it from a local fixed flash on the device. OBMF requirements reference Streaming Boot alongside MHS, DC-SCM, MCTP and PLDM, and industry implementations pair it with OBMF-ICP: a Lattice FPGA platform-management example, for instance, runs OBMF-ICP over dual USB together with Streaming Boot built on <strong>Caliptra 2.x</strong>.</p>
+<p><a href="https://github.com/chipsalliance/caliptra" target="_blank"><strong>Caliptra</strong></a> is an open-source silicon <strong>Root of Trust</strong> (an OCP / CHIPS Alliance project) that provides measured, attested boot for a device. The relationship is best framed conservatively: Streaming Boot and Caliptra are <em>adjacent ecosystem pieces</em> that OBMF requirements touch, not components defined inside OBMF-ICP. OBMF-ICP is the management/boot communication path that such streaming-boot and root-of-trust flows can ride on; it does not itself define the streaming mechanism or the root-of-trust cryptography.</p>
 <p>For a Linux platform or firmware engineer, this is the practical takeaway: DC-SCM gives you the module, OpenBMC gives you the BMC firmware, and OBMF-ICP standardizes the conversation between the host and that BMC — one consolidated protocol instead of a per-vendor collection of sideband signals.</p>`
     },
     {
-      "title": "8. Status, Scope & Further Reading",
-      "content": `<p><strong>Status: emerging standard.</strong> OBMF-ICP v1.0.0 is recent (dated Oct 7, 2026), earlier public drafts were 0.7 / 0.7.1 (late 2025), the USB device-class binding is v1.0 (2026), and the MCTP binding (DSP0295) is still work-in-progress. Keep expectations conservative: the framework is still evolving and details may change.</p>
+      "title": "8. Implementations & Ecosystem: AMC, AI Platforms, Streaming Boot",
+      "content": `<p>OBMF is still an emerging workstream, but silicon and IP vendors are already building against it, and those implementations show why the consolidation matters in practice. The pieces below are <strong>industry demonstrations and ecosystem context</strong>, not parts of the specification itself — treat the specific part numbers as examples.</p>
+<h4>Primary BMC + auxiliary management controller (AMC)</h4>
+<p>In ASPEED's OCP demonstration, two controllers work together: the primary <strong>BMC</strong> (AST2700, on the DC-SCM) and an <strong>auxiliary management controller (AMC)</strong> (AST1030). The AMC does not replace the BMC; it operates in tandem with it to <strong>extend management reach</strong> out to peripheral modules and accelerators, giving comprehensive oversight of a dense system. In related FPGA implementations OBMF-ICP ran over dual (downstream/upstream) USB interfaces.</p>
+${obmfAmcSVG()}
+<h4>Why this matters for AI platforms</h4>
+<p>Dense accelerator and <strong>AI platforms</strong> have many accelerators and peripheral modules to manage. Wiring each with its own legacy sideband does not scale; consolidating the management traffic onto one protocol and fanning it out through an AMC does. OCP presented "OBMF for Efficient Management of AI Platforms" at the OCP EMEA Summit 2026, which is the use case the primary-BMC-plus-AMC pattern targets.</p>
+<h4>Streaming Boot &amp; Caliptra, in implementations</h4>
+<p>As covered in section 7, implementations pair OBMF-ICP (over dual USB) with <strong>Streaming Boot</strong> based on <strong>Caliptra 2.x</strong> for a measured, attested boot. OBMF-ICP provides the communication path; Streaming Boot and the Caliptra root-of-trust remain adjacent ecosystem pieces rather than OBMF components.</p>
+<h4>Who is driving it</h4>
+<p>The workstream is led by <strong>Intel</strong> and <strong>Microsoft</strong>, with silicon / IP vendors such as <strong>ASPEED</strong> and <strong>Lattice</strong> building implementations. Its stated direction is a universal, vendor-agnostic DC-SCM — the theme of the OCP EMEA 2025 talk "on the mission for Universal, Vendor-Agnostic DC-SCM." These are verified, non-promotional facts about participation and intent, not endorsements.</p>`
+    },
+    {
+      "title": "9. Status, Scope & Further Reading",
+      "content": `<p><strong>Status: emerging standard.</strong> OBMF-ICP v1.0.0 is recent (dated Oct 7, 2026), earlier public drafts were 0.7 / 0.7.1 (late 2025), the USB device-class binding is v1.0 (dated April 10, 2026), and the MCTP binding (DSP0295) is still work-in-progress. Keep expectations conservative: the framework is still evolving and details may change.</p>
+<h4>Document &amp; revision history</h4>
+<p>The OBMF wiki's published-documents list, as of the Oct 2026 snapshot (latest revision of each document shown in <strong>bold</strong>):</p>
+<table style="width:100%; border-collapse:collapse; margin:1rem 0;"><tr style="border-bottom:1px solid #30363d;"><th style="text-align:left; padding:0.5rem;">Document</th><th style="text-align:left; padding:0.5rem;">Revisions (date)</th><th style="text-align:left; padding:0.5rem;">Latest</th></tr>
+<tr style="border-bottom:1px solid #30363d;"><td style="padding:0.5rem;">OBMF Requirements</td><td style="padding:0.5rem;">0.8 (Jun 2, 2025)</td><td style="padding:0.5rem;"><strong>0.8</strong> (historical)</td></tr>
+<tr style="border-bottom:1px solid #30363d;"><td style="padding:0.5rem;">OBMF-ICP Specification</td><td style="padding:0.5rem;">0.7 (Oct 10, 2025); 0.7.1 (Oct 30, 2025); 1.0.0 (Oct 7, 2026)</td><td style="padding:0.5rem;"><strong>1.0.0</strong></td></tr>
+<tr style="border-bottom:1px solid #30363d;"><td style="padding:0.5rem;">USB Device Class Spec for OBMF-ICP</td><td style="padding:0.5rem;">0.7 (Oct 10, 2025); 0.71 (Oct 30, 2025); 1.0 RC (Mar 5, 2026); 1.0 (Apr 10, 2026)</td><td style="padding:0.5rem;"><strong>1.0</strong></td></tr>
+<tr style="border-bottom:1px solid #30363d;"><td style="padding:0.5rem;">OBMF-ICP Specification Supplement — RDL Files</td><td style="padding:0.5rem;">0.7 (Oct 10, 2025)</td><td style="padding:0.5rem;"><strong>0.7</strong></td></tr>
+<tr><td style="padding:0.5rem;">DSP0295 — OBMF-ICP over MCTP Binding</td><td style="padding:0.5rem;">0.8 WIP (Mar 30, 2026)</td><td style="padding:0.5rem;"><strong>0.8</strong> (WIP)</td></tr></table>
+<p>The <strong>RDL</strong> supplement ships Register Description Language files alongside the specification — a machine-readable companion that lets tools consume the register definitions directly rather than transcribing them from the prose spec.</p>
 <h4>Scope at a glance</h4>
 <table style="width:100%; border-collapse:collapse; margin:1rem 0;"><tr style="border-bottom:1px solid #30363d;"><th style="text-align:left; padding:0.5rem;">In scope</th><th style="text-align:left; padding:0.5rem;">Out of scope</th></tr>
 <tr style="border-bottom:1px solid #30363d;"><td style="padding:0.5rem;">Use cases, initiator/target roles, protocol states</td><td style="padding:0.5rem;">Firmware implementation</td></tr>
@@ -418,9 +510,11 @@ ${obmfApplicabilitySVG()}
 <li><a href="https://github.com/opencomputeproject/ocp-obmf" target="_blank">GitHub — opencomputeproject/ocp-obmf</a> and its <a href="https://github.com/opencomputeproject/ocp-obmf/wiki" target="_blank">wiki (charter &amp; specs)</a></li>
 <li><a href="https://www.opencompute.org/projects/hardware-management" target="_blank">OCP — Hardware Management Project</a></li>
 <li><a href="https://www.dmtf.org/standards/pmci" target="_blank">DMTF — PMCI (MCTP / PLDM standards)</a></li>
+<li><a href="https://www.dmtf.org/standards/spdm" target="_blank">DMTF — SPDM (Security Protocol and Data Model)</a></li>
+<li><a href="https://github.com/chipsalliance/caliptra" target="_blank">GitHub — chipsalliance/caliptra (open-source silicon Root of Trust)</a></li>
 </ul>
 <p>Related topics on this site: <em>DC-SCM</em> (the module that carries the BMC), <em>OpenBMC</em> (the BMC firmware that speaks the protocol) and <em>CXL</em> (one of the other devices OBMF-ICP is reusable for).</p>
-<p style="font-size:0.85rem; color:#8b949e;">Content on this page was rephrased in our own words for licensing compliance and summarized from the OCP sources above; OBMF is a recent, still-evolving workstream, so treat version numbers and binding status as point-in-time.</p>`
+<p style="font-size:0.85rem; color:#8b949e;">Content on this page was rephrased in our own words for licensing compliance and summarized from the OCP sources above. It is current as of the Oct 2026 spec list; OBMF is an evolving workstream, so treat version numbers and binding status as point-in-time.</p>`
     }
   ]
 };
